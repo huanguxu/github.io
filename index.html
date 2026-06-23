@@ -6,11 +6,14 @@
     <title>FENG'S DS</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        html, body {
+            height: 100%;
             background: #f7f7f8;
-            height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        body {
             overflow: hidden;
+            height: 100vh;
         }
 
         .main-content {
@@ -19,7 +22,7 @@
             height: 100vh;
             max-width: 600px;
             margin: 0 auto;
-            padding: 20px 16px 30px;
+            padding: 20px 16px 12px;
             background: white;
             box-shadow: 0 0 20px rgba(0,0,0,0.05);
         }
@@ -28,21 +31,21 @@
             color: #f8bbd0;
             font-weight: 700;
             font-size: 24px;
-            margin: 10px 0 20px;
+            margin: 10px 0 16px;
             letter-spacing: 1px;
+            flex-shrink: 0;
         }
         #chat-box {
             flex: 1;
             overflow-y: auto;
             border: 1px solid #e5e5e5;
             border-radius: 8px;
-            padding: 15px;
+            padding: 12px 15px;
             background: #fafafa;
             display: flex;
             flex-direction: column;
-            min-height: 300px;
-            max-height: 70vh;
             transition: font-size 0.2s;
+            min-height: 0;
         }
         .message-wrapper {
             display: flex;
@@ -74,8 +77,9 @@
             background: #fce4ec;
         }
         .ai-message {
-            background: #e5e5ea;
+            background: white;
             color: black;
+            border: 1px solid #e5e5e5;
         }
         .welcome-message {
             background: white !important;
@@ -94,6 +98,7 @@
             color: #888;
             user-select: none;
             align-items: center;
+            flex-wrap: wrap;
         }
         .ai-actions span {
             cursor: pointer;
@@ -104,12 +109,11 @@
         .ai-actions span:hover {
             background: #f0f0f0;
         }
-        /* 重新生成按钮单独样式，与版本号对齐 */
         .ai-actions .regenerate-btn {
-            font-size: 13px;
+            font-size: 18px;
             line-height: 1.4;
-            padding: 2px 6px;
-            margin-top: -1px; /* 上移一点 */
+            padding: 2px 8px;
+            margin-top: -5px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -124,10 +128,18 @@
         .ai-actions .version-info:hover {
             background: #f0f0f0;
         }
+        .ai-actions .token-stats {
+            font-size: 13px;
+            color: #aaa;
+            padding: 2px 4px;
+            line-height: 1.4;
+            cursor: default;
+        }
         .input-area {
             display: flex;
             gap: 10px;
-            margin-top: 15px;
+            margin-top: 12px;
+            flex-shrink: 0;
         }
         #user-input {
             flex: 1;
@@ -163,13 +175,14 @@
             text-align: center;
             color: #888;
             font-style: italic;
-            margin-top: 10px;
-            min-height: 24px;
+            margin-top: 6px;
+            min-height: 20px;
             font-size: 14px;
+            flex-shrink: 0;
         }
         .error { color: #d32f2f; }
 
-        /* 左侧菜单按钮 */
+        /* 菜单按钮（三条横线） */
         #menu-btn {
             position: fixed;
             top: 25px;
@@ -179,6 +192,7 @@
             border: none;
             padding: 8px;
             font-size: 24px;
+            font-weight: 400;
             color: #f8bbd0;
             cursor: pointer;
             transition: transform 0.2s;
@@ -191,17 +205,17 @@
             transform: scale(0.85);
         }
 
-        /* 右侧新建对话按钮 */
+        /* 加号按钮：与菜单栏大小、粗细一致 */
         #new-chat-btn {
             position: fixed;
             top: 25px;
             right: 20px;
             z-index: 1000;
-            background: none;
+            background: none !important;
             border: none;
             padding: 8px;
-            font-size: 28px;
-            font-weight: 300;
+            font-size: 24px;        /* 与菜单栏一致 */
+            font-weight: 400;       /* 与菜单栏一致 */
             color: #f8bbd0;
             cursor: pointer;
             transition: transform 0.2s;
@@ -209,9 +223,14 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            outline: none;
         }
         #new-chat-btn:active {
             transform: scale(0.85);
+        }
+        #new-chat-btn:hover,
+        #new-chat-btn:focus {
+            background: none !important;
         }
 
         /* 遮罩层 */
@@ -298,6 +317,15 @@
             overflow-y: auto;
             margin-top: 5px;
         }
+        .history-main-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #f0f0f0;
+            letter-spacing: 0.5px;
+        }
         .history-date {
             font-weight: 600;
             color: #888;
@@ -324,14 +352,28 @@
             border-left-color: #ffb74d;
             background: #fff8e1;
         }
-        .history-item .question {
+        .history-item .question-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+        .history-item .question-text {
             font-weight: 500;
             color: #333;
             font-size: 15px;
-            margin-bottom: 4px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            flex: 1;
+            min-width: 0;
+        }
+        .history-item .time {
+            color: #bbb;
+            font-size: 12px;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
         .history-item .answer-preview {
             color: #777;
@@ -342,12 +384,6 @@
             overflow: hidden;
             line-height: 1.4;
         }
-        .history-item .time {
-            color: #bbb;
-            font-size: 11px;
-            margin-top: 4px;
-            text-align: right;
-        }
         .no-history {
             color: #ccc;
             text-align: center;
@@ -355,7 +391,6 @@
             font-size: 15px;
         }
 
-        /* 底部齿轮 */
         .sidebar-footer {
             margin-top: 20px;
             border-top: 1px solid #f0f0f0;
@@ -390,7 +425,7 @@
             fill: #f48fb1;
         }
 
-        /* ---------- 设置面板 ---------- */
+        /* 设置面板 */
         .settings-overlay {
             display: none;
             position: fixed;
@@ -621,9 +656,8 @@
         }
 
         @media (max-width: 480px) {
-            .main-content { padding: 15px 12px 20px; }
-            #chat-box { max-height: 55vh; }
-            .sidebar { width: 90%; padding: 20px 16px; }
+            .main-content { padding: 15px 12px 8px; }
+            #chat-box { padding: 10px 12px; }
             #menu-btn {
                 font-size: 20px;
                 padding: 6px;
@@ -631,10 +665,11 @@
                 left: 16px;
             }
             #new-chat-btn {
-                font-size: 24px;
+                font-size: 20px;    /* 与菜单栏一致 */
                 padding: 6px;
                 top: 22px;
                 right: 16px;
+                font-weight: 400;
             }
             .search-container input { font-size: 14px; padding: 8px 14px; }
             .search-container button { font-size: 14px; padding: 8px 14px; }
@@ -660,9 +695,21 @@
                 font-size: 12px;
                 gap: 8px;
             }
-            .ai-actions .regenerate-btn,
-            .ai-actions .version-info {
+            .ai-actions .regenerate-btn {
+                font-size: 16px;
+            }
+            .ai-actions .version-info,
+            .ai-actions .token-stats {
                 font-size: 12px;
+            }
+            .history-main-title {
+                font-size: 18px;
+            }
+            .history-item .question-text {
+                font-size: 14px;
+            }
+            .history-item .time {
+                font-size: 11px;
             }
         }
     </style>
@@ -684,6 +731,8 @@
 
     <!-- 菜单按钮 -->
     <button id="menu-btn" aria-label="打开侧边栏">☰</button>
+
+    <!-- 加号按钮：与菜单栏大小粗细一致 -->
     <button id="new-chat-btn" aria-label="新建对话">+</button>
 
     <!-- 遮罩 -->
@@ -695,7 +744,9 @@
             <input type="text" id="search-input" />
             <button id="search-btn">搜索</button>
         </div>
-        <div class="history-section" id="history-container"></div>
+        <div class="history-section" id="history-container">
+            <!-- 历史记录由 JS 渲染 -->
+        </div>
         <div class="sidebar-footer">
             <button id="settings-btn" aria-label="设置">
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -720,8 +771,8 @@
             <div class="settings-item">
                 <label>模型选择</label>
                 <select id="model-select">
-                    <option value="deepseek-chat">deepseek-chat</option>
-                    <option value="deepseek-reasoner">deepseek-reasoner</option>
+                    <option value="V4-Flash">V4-Flash（快速模式）</option>
+                    <option value="V4-Pro">V4-Pro（专家模式）</option>
                 </select>
             </div>
             <div class="settings-item">
@@ -802,6 +853,8 @@
         let isGenerating = false;
         const WELCOME_TEXT = '甜心，祝你今天过得愉快！';
 
+        let showTokenStats = true;
+
         function resetChat() {
             messages = [
                 { type: 'ai', text: WELCOME_TEXT, versions: [WELCOME_TEXT], currentVersion: 0 }
@@ -812,8 +865,26 @@
             statusMsg.textContent = '';
         }
 
+        function estimateTokens(text) {
+            if (!text) return 0;
+            let chineseCount = 0, otherCount = 0;
+            for (let i = 0; i < text.length; i++) {
+                const code = text.charCodeAt(i);
+                if (code >= 0x4E00 && code <= 0x9FFF) chineseCount++;
+                else otherCount++;
+            }
+            return Math.ceil(chineseCount * 1.5 + otherCount * 0.8);
+        }
+
         function renderMessages() {
             chatBox.innerHTML = '';
+            let totalTokens = 0;
+            messages.forEach((msg, idx) => {
+                if (msg.type === 'ai' && !(idx === 0 && msg.text === WELCOME_TEXT)) {
+                    totalTokens += estimateTokens(msg.text);
+                }
+            });
+
             messages.forEach((msg, index) => {
                 const wrapper = document.createElement('div');
                 wrapper.className = `message-wrapper ${msg.type === 'user' ? 'user-wrapper' : 'ai-wrapper'}`;
@@ -853,6 +924,15 @@
                     });
                     actions.appendChild(versionInfo);
 
+                    if (showTokenStats) {
+                        const text = msg.text || '';
+                        const charCount = text.length;
+                        const statsSpan = document.createElement('span');
+                        statsSpan.className = 'token-stats';
+                        statsSpan.textContent = `字数: ${charCount} | Tokens: ${totalTokens}`;
+                        actions.appendChild(statsSpan);
+                    }
+
                     wrapper.appendChild(actions);
                 }
 
@@ -882,7 +962,7 @@
             return localStorage.getItem(STORAGE_KEYS.apiKey) || '';
         }
         function getModel() {
-            return localStorage.getItem(STORAGE_KEYS.model) || 'deepseek-chat';
+            return localStorage.getItem(STORAGE_KEYS.model) || 'V4-Flash';
         }
 
         const API_URL = 'https://api.deepseek.com/chat/completions';
@@ -931,8 +1011,7 @@
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder('utf-8');
-            let buffer = '';
-            let fullReply = '';
+            let buffer = '', fullReply = '';
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -1097,9 +1176,15 @@
             }
             const userText = messages[userIndex].text;
 
-            messages = messages.slice(0, index);
-            const aiMsg = { type: 'ai', text: '...', versions: ['...'], currentVersion: 0 };
-            messages.push(aiMsg);
+            messages = messages.slice(0, index + 1);
+            const aiMsg = messages[index];
+            if (!aiMsg.versions) {
+                aiMsg.versions = [aiMsg.text];
+                aiMsg.currentVersion = 0;
+            }
+            aiMsg.versions.push('...');
+            aiMsg.currentVersion = aiMsg.versions.length - 1;
+            aiMsg.text = '...';
             renderMessages();
             statusMsg.textContent = '重新生成中...';
             sendBtn.disabled = true;
@@ -1107,27 +1192,20 @@
 
             try {
                 const fullReply = await generateAIResponse(userText, (chunk) => {
-                    const lastMsg = messages[messages.length - 1];
-                    if (lastMsg.type === 'ai') {
-                        lastMsg.text = chunk;
-                        lastMsg.versions[0] = chunk;
-                        renderMessages();
-                    }
+                    const lastIdx = aiMsg.versions.length - 1;
+                    aiMsg.versions[lastIdx] = chunk;
+                    aiMsg.text = chunk;
+                    renderMessages();
                 });
-                const lastMsg = messages[messages.length - 1];
-                if (lastMsg.type === 'ai') {
-                    lastMsg.text = fullReply || '（AI没有返回内容）';
-                    lastMsg.versions[0] = lastMsg.text;
-                    lastMsg.currentVersion = 0;
-                }
+                const lastIdx = aiMsg.versions.length - 1;
+                aiMsg.versions[lastIdx] = fullReply || '（AI没有返回内容）';
+                aiMsg.text = fullReply || '（AI没有返回内容）';
                 statusMsg.textContent = '';
             } catch (error) {
                 console.error(error);
-                const lastMsg = messages[messages.length - 1];
-                if (lastMsg.type === 'ai') {
-                    lastMsg.text = `❌ ${error.message || '未知错误'}`;
-                    lastMsg.versions[0] = lastMsg.text;
-                }
+                const lastIdx = aiMsg.versions.length - 1;
+                aiMsg.versions[lastIdx] = `❌ ${error.message || '未知错误'}`;
+                aiMsg.text = `❌ ${error.message || '未知错误'}`;
                 statusMsg.textContent = '重新生成失败，请检查网络或设置';
             } finally {
                 isGenerating = false;
@@ -1158,7 +1236,7 @@
         // ============================================================
         function loadSettings() {
             const savedApiKey = localStorage.getItem(STORAGE_KEYS.apiKey) || '';
-            const savedModel = localStorage.getItem(STORAGE_KEYS.model) || 'deepseek-chat';
+            const savedModel = localStorage.getItem(STORAGE_KEYS.model) || 'V4-Flash';
             const savedFontSize = parseInt(localStorage.getItem(STORAGE_KEYS.fontSize)) || 16;
             const savedShowToken = localStorage.getItem(STORAGE_KEYS.showToken) !== 'false';
             const savedMemory = localStorage.getItem(STORAGE_KEYS.memoryStrategy) || 'compress';
@@ -1170,6 +1248,7 @@
             showTokenCheckbox.checked = savedShowToken;
             memoryStrategySelect.value = savedMemory;
 
+            showTokenStats = savedShowToken;
             applyFontSize(savedFontSize);
             updateToggleButton();
         }
@@ -1195,7 +1274,9 @@
             localStorage.setItem(STORAGE_KEYS.showToken, showToken);
             localStorage.setItem(STORAGE_KEYS.memoryStrategy, memoryStrategy);
 
+            showTokenStats = showToken;
             applyFontSize(fontSize);
+            renderMessages();
             alert('设置已保存！');
             closeSettings();
         }
@@ -1362,8 +1443,12 @@
 
         function renderHistory() {
             const history = getHistory();
+
+            let html = '<div class="history-main-title">历史记录</div>';
+
             if (history.length === 0) {
-                historyContainer.innerHTML = '<div class="no-history">暂无对话记录</div>';
+                html += '<div class="no-history">暂无对话记录</div>';
+                historyContainer.innerHTML = html;
                 return;
             }
 
@@ -1380,8 +1465,6 @@
                 groups[dateStr].push(entry);
             });
             const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
-
-            let html = '';
 
             if (pinned.length > 0) {
                 html += `<div class="history-date">📌 置顶</div>`;
@@ -1432,13 +1515,19 @@
 
         function buildHistoryItemHtml(entry) {
             const preview = entry.aiReply.length > 60 ? entry.aiReply.substring(0, 60) + '…' : entry.aiReply;
-            const timeStr = new Date(entry.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            const timeStr = new Date(entry.timestamp).toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            });
             const pinnedClass = entry.pinned ? 'pinned' : '';
             return `
                 <div class="history-item ${pinnedClass}" data-id="${entry.id}" data-longpress="false">
-                    <div class="question">${escapeHtml(entry.userMessage)}</div>
+                    <div class="question-row">
+                        <span class="question-text">${escapeHtml(entry.userMessage)}</span>
+                        <span class="time">${timeStr}</span>
+                    </div>
                     <div class="answer-preview">${escapeHtml(preview)}</div>
-                    <div class="time">${timeStr}</div>
                 </div>
             `;
         }
