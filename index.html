@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>FENG'S DS</title>
     <style>
+        /* ===== 全局样式 ===== */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body {
             height: 100%;
@@ -318,6 +319,19 @@
             letter-spacing: 0.5px;
             flex-shrink: 0;
         }
+        /* 日期标题（独立小标题） */
+        .history-date {
+            font-size: 16px;
+            font-weight: 700;
+            color: #5d4037;
+            background: #f8bbd0;
+            padding: 6px 14px;
+            border-radius: 20px;
+            margin: 12px 0 10px 0;
+            display: inline-block;
+            align-self: flex-start;
+            letter-spacing: 0.3px;
+        }
         .history-item {
             background: #f9f9f9;
             border-radius: 10px;
@@ -366,9 +380,9 @@
             font-size: 15px;
         }
 
-        /* 底部设置（图标放大） */
+        /* ===== 底部设置（图标置底） ===== */
         .sidebar-footer {
-            margin-top: 50px;
+            margin-top: auto;
             border-top: 1px solid #f0f0f0;
             padding: 16px 0;
             display: flex;
@@ -393,7 +407,7 @@
             opacity: 0.7;
         }
         #settings-btn svg {
-            width: 32px;           /* 放大至32px */
+            width: 32px;
             height: 32px;
             fill: #f8bbd0;
             transition: fill 0.2s;
@@ -652,13 +666,12 @@
             .search-container input { font-size: 14px; padding: 8px 14px; }
             .search-container button { font-size: 14px; padding: 8px 14px; }
             #settings-btn svg {
-                width: 28px;           /* 移动端放大至28px */
+                width: 28px;
                 height: 28px;
             }
             .sidebar-footer {
                 padding: 12px 0;
                 min-height: 48px;
-                margin-top: 35px;
             }
             .settings-card {
                 padding: 24px 20px;
@@ -683,6 +696,10 @@
             }
             .history-main-title {
                 font-size: 18px;
+            }
+            .history-date {
+                font-size: 14px;
+                padding: 4px 12px;
             }
             .history-item .question-text {
                 font-size: 14px;
@@ -771,7 +788,7 @@
                 <label>记忆策略</label>
                 <select id="memory-strategy-select">
                     <option value="compress">压缩早期对话（保留100条）</option>
-                    <option value="no-compress">不压缩</option>
+                    <option value="no-compress" selected>不压缩</option>
                 </select>
             </div>
             <div class="settings-item">
@@ -943,13 +960,12 @@
             return Math.ceil(chineseCount * 1.5 + otherCount * 0.8);
         }
 
-        // 获取记忆策略
         function getMemoryStrategy() {
-            return localStorage.getItem(STORAGE_KEYS.memoryStrategy) || 'compress';
+            return localStorage.getItem(STORAGE_KEYS.memoryStrategy) || 'no-compress';
         }
 
         // ============================================================
-        // 5. 聊天渲染（使用存储的累计值）
+        // 5. 聊天渲染
         // ============================================================
         function renderMessages() {
             chatBox.innerHTML = '';
@@ -1035,7 +1051,7 @@
         }
 
         // ============================================================
-        // 6. API 调用（携带完整历史）
+        // 6. API 调用
         // ============================================================
         function getApiKey() {
             return localStorage.getItem(STORAGE_KEYS.apiKey) || '';
@@ -1067,7 +1083,7 @@
             }
 
             const apiMessages = [
-                { role: 'system', content: 'You are a helpful assistant.' }
+                { role: 'system', content: 'You are a highly intelligent assistant that remembers the full conversation context. Always refer back to previous exchanges to provide coherent and accurate responses.' }
             ];
             historyToSend.forEach(msg => {
                 if (msg.type === 'user') {
@@ -1135,7 +1151,7 @@
         }
 
         // ============================================================
-        // 7. 核心操作（发送、编辑、重新生成）
+        // 7. 核心操作
         // ============================================================
 
         function resetChat() {
@@ -1393,7 +1409,7 @@
             const savedModel = localStorage.getItem(STORAGE_KEYS.model) || 'deepseek-v4-flash';
             const savedFontSize = parseInt(localStorage.getItem(STORAGE_KEYS.fontSize)) || 16;
             const savedShowToken = localStorage.getItem(STORAGE_KEYS.showToken) !== 'false';
-            const savedMemory = localStorage.getItem(STORAGE_KEYS.memoryStrategy) || 'compress';
+            const savedMemory = localStorage.getItem(STORAGE_KEYS.memoryStrategy) || 'no-compress';
 
             apiKeyInput.value = savedApiKey;
             modelSelect.value = savedModel;
@@ -1554,7 +1570,7 @@
         });
 
         // ============================================================
-        // 13. 历史记录渲染
+        // 13. 历史记录渲染（日期标题已强化）
         // ============================================================
         function renderHistory() {
             const sessions = getSessions();
@@ -1572,18 +1588,35 @@
             unpinned.sort((a, b) => b.timestamp - a.timestamp);
 
             if (pinned.length > 0) {
-                html += `<div class="history-date" style="font-weight:600;color:#888;font-size:14px;margin:10px 0 8px;padding-bottom:4px;border-bottom:1px solid #eee;">📌 置顶</div>`;
+                html += `<div class="history-date">📌 置顶</div>`;
                 pinned.forEach(session => {
                     html += buildSessionItemHtml(session);
                 });
             }
 
-            unpinned.forEach(session => {
-                html += buildSessionItemHtml(session);
+            // 按日期分组（非置顶）
+            const groups = {};
+            unpinned.forEach(entry => {
+                const date = new Date(entry.timestamp);
+                const dateStr = date.getFullYear() + '-' +
+                                String(date.getMonth() + 1).padStart(2, '0') + '-' +
+                                String(date.getDate()).padStart(2, '0');
+                if (!groups[dateStr]) groups[dateStr] = [];
+                groups[dateStr].push(entry);
+            });
+            const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+
+            sortedDates.forEach(dateStr => {
+                html += `<div class="history-date">${dateStr}</div>`;
+                const entries = groups[dateStr].sort((a, b) => a.timestamp - b.timestamp);
+                entries.forEach(entry => {
+                    html += buildSessionItemHtml(entry);
+                });
             });
 
             historyContainer.innerHTML = html;
 
+            // 绑定点击事件（加载会话）
             document.querySelectorAll('.history-item').forEach(item => {
                 item.addEventListener('click', function(e) {
                     if (this.dataset.longpress === 'true') {
@@ -1595,6 +1628,7 @@
                 });
             });
 
+            // 绑定长按/右键
             document.querySelectorAll('.history-item').forEach(item => {
                 item.removeEventListener('touchstart', handleTouchStart);
                 item.removeEventListener('touchend', handleTouchEnd);
