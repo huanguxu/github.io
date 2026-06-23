@@ -138,7 +138,7 @@
         .input-area {
             display: flex;
             gap: 10px;
-            margin-top: 12px;
+            margin-top: 16px;
             flex-shrink: 0;
         }
         #user-input {
@@ -157,6 +157,7 @@
             border-radius: 24px;
             padding: 12px 24px;
             font-size: 16px;
+            font-weight: 700;
             cursor: pointer;
             transition: background 0.2s, transform 0.1s;
             white-space: nowrap;
@@ -182,49 +183,35 @@
         }
         .error { color: #d32f2f; }
 
-        /* 菜单按钮（三条横线） */
-        #menu-btn {
+        /* ===== 菜单按钮与加号 ===== */
+        #menu-btn,
+        #new-chat-btn {
             position: fixed;
             top: 25px;
-            left: 20px;
             z-index: 1000;
-            background: none;
-            border: none;
-            padding: 8px;
-            font-size: 24px;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             font-weight: 400;
             color: #f8bbd0;
             cursor: pointer;
             transition: transform 0.2s;
             line-height: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        #menu-btn:active {
-            transform: scale(0.85);
-        }
-
-        /* 加号按钮：与菜单栏大小、粗细一致 */
-        #new-chat-btn {
-            position: fixed;
-            top: 25px;
-            right: 20px;
-            z-index: 1000;
-            background: none !important;
             border: none;
-            padding: 8px;
-            font-size: 24px;        /* 与菜单栏一致 */
-            font-weight: 400;       /* 与菜单栏一致 */
-            color: #f8bbd0;
-            cursor: pointer;
-            transition: transform 0.2s;
-            line-height: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            outline: none;
+            background: none;
+            padding: 0;
         }
+        #menu-btn {
+            left: 20px;
+            font-size: 24px;
+        }
+        #new-chat-btn {
+            right: 20px;
+            font-size: 28px;
+        }
+        #menu-btn:active,
         #new-chat-btn:active {
             transform: scale(0.85);
         }
@@ -281,6 +268,7 @@
             margin-bottom: 20px;
             border-bottom: 1px solid #f0f0f0;
             padding-bottom: 20px;
+            flex-shrink: 0;
         }
         .search-container input {
             flex: 1;
@@ -311,11 +299,13 @@
             transform: scale(0.95);
         }
 
-        /* 历史记录 */
+        /* 历史记录（会话列表） */
         .history-section {
             flex: 1;
             overflow-y: auto;
-            margin-top: 5px;
+            padding: 20px 0;
+            display: flex;
+            flex-direction: column;
         }
         .history-main-title {
             font-size: 20px;
@@ -325,14 +315,7 @@
             padding-bottom: 8px;
             border-bottom: 2px solid #f0f0f0;
             letter-spacing: 0.5px;
-        }
-        .history-date {
-            font-weight: 600;
-            color: #888;
-            font-size: 14px;
-            margin: 15px 0 8px;
-            padding-bottom: 4px;
-            border-bottom: 1px solid #eee;
+            flex-shrink: 0;
         }
         .history-item {
             background: #f9f9f9;
@@ -344,6 +327,7 @@
             border-left: 3px solid #f8bbd0;
             position: relative;
             user-select: none;
+            flex-shrink: 0;
         }
         .history-item:hover {
             background: #f0f0f0;
@@ -357,7 +341,6 @@
             justify-content: space-between;
             align-items: center;
             gap: 10px;
-            margin-bottom: 4px;
         }
         .history-item .question-text {
             font-weight: 500;
@@ -375,15 +358,6 @@
             white-space: nowrap;
             flex-shrink: 0;
         }
-        .history-item .answer-preview {
-            color: #777;
-            font-size: 13px;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            line-height: 1.4;
-        }
         .no-history {
             color: #ccc;
             text-align: center;
@@ -391,14 +365,16 @@
             font-size: 15px;
         }
 
+        /* 底部设置 */
         .sidebar-footer {
-            margin-top: 20px;
+            margin-top: 35px;
             border-top: 1px solid #f0f0f0;
             padding: 16px 0;
             display: flex;
             align-items: center;
             justify-content: flex-start;
             min-height: 60px;
+            flex-shrink: 0;
         }
         #settings-btn {
             background: transparent;
@@ -514,7 +490,6 @@
         .api-row .btn-icon.copy-btn:hover {
             background: #f48fb1;
         }
-
         .settings-item select {
             width: 100%;
             padding: 10px 14px;
@@ -552,7 +527,6 @@
             background: #f8bbd0;
             cursor: pointer;
             border: none;
-            transition: 0.1s;
         }
         .settings-item .range-row input[type="range"]::-webkit-slider-thumb:hover {
             background: #f48fb1;
@@ -579,7 +553,6 @@
             color: #333;
             cursor: pointer;
         }
-
         .settings-actions {
             display: flex;
             gap: 12px;
@@ -612,7 +585,7 @@
             transform: scale(0.96);
         }
 
-        /* 上下文菜单 */
+        /* 上下文菜单（长按历史记录） */
         .context-menu {
             display: none;
             position: fixed;
@@ -655,21 +628,23 @@
             color: #d32f2f;
         }
 
+        /* 响应式 */
         @media (max-width: 480px) {
             .main-content { padding: 15px 12px 8px; }
             #chat-box { padding: 10px 12px; }
-            #menu-btn {
-                font-size: 20px;
-                padding: 6px;
+            #menu-btn,
+            #new-chat-btn {
                 top: 22px;
+                width: 34px;
+                height: 34px;
+            }
+            #menu-btn {
                 left: 16px;
+                font-size: 20px;
             }
             #new-chat-btn {
-                font-size: 20px;    /* 与菜单栏一致 */
-                padding: 6px;
-                top: 22px;
                 right: 16px;
-                font-weight: 400;
+                font-size: 24px;
             }
             .search-container input { font-size: 14px; padding: 8px 14px; }
             .search-container button { font-size: 14px; padding: 8px 14px; }
@@ -680,6 +655,7 @@
             .sidebar-footer {
                 padding: 12px 0;
                 min-height: 48px;
+                margin-top: 25px;
             }
             .settings-card {
                 padding: 24px 20px;
@@ -711,6 +687,13 @@
             .history-item .time {
                 font-size: 11px;
             }
+            .input-area {
+                margin-top: 14px;
+            }
+            #send-btn {
+                font-size: 15px;
+                padding: 10px 18px;
+            }
         }
     </style>
 </head>
@@ -731,8 +714,7 @@
 
     <!-- 菜单按钮 -->
     <button id="menu-btn" aria-label="打开侧边栏">☰</button>
-
-    <!-- 加号按钮：与菜单栏大小粗细一致 -->
+    <!-- 加号按钮 -->
     <button id="new-chat-btn" aria-label="新建对话">+</button>
 
     <!-- 遮罩 -->
@@ -803,7 +785,7 @@
         </div>
     </div>
 
-    <!-- 上下文菜单（历史记录长按） -->
+    <!-- 上下文菜单（长按历史记录） -->
     <div class="context-menu" id="context-menu">
         <button id="menu-rename">✏️ 重命名</button>
         <button id="menu-pin">📌 置顶</button>
@@ -819,7 +801,8 @@
             model: 'fengs_model',
             fontSize: 'fengs_font_size',
             showToken: 'fengs_show_token',
-            memoryStrategy: 'fengs_memory_strategy'
+            memoryStrategy: 'fengs_memory_strategy',
+            sessions: 'fengs_sessions'
         };
 
         const sidebar = document.getElementById('sidebar');
@@ -847,27 +830,108 @@
         const memoryStrategySelect = document.getElementById('memory-strategy-select');
 
         // ============================================================
-        // 2. 数据管理
+        // 2. 全局变量
         // ============================================================
         let messages = [];
         let isGenerating = false;
         const WELCOME_TEXT = '甜心，祝你今天过得愉快！';
-
         let showTokenStats = true;
+        let currentSessionId = null;
 
-        function resetChat() {
-            messages = [
-                { type: 'ai', text: WELCOME_TEXT, versions: [WELCOME_TEXT], currentVersion: 0 }
-            ];
+        // ============================================================
+        // 3. 数据管理（会话存储）
+        // ============================================================
+        function getSessions() {
+            const stored = localStorage.getItem(STORAGE_KEYS.sessions);
+            return stored ? JSON.parse(stored) : [];
+        }
+
+        function saveSessions(sessions) {
+            localStorage.setItem(STORAGE_KEYS.sessions, JSON.stringify(sessions));
+        }
+
+        function saveCurrentSession() {
+            if (messages.length === 1 && messages[0].type === 'ai' && messages[0].text === WELCOME_TEXT) return;
+            if (messages.length === 0) return;
+
+            const sessions = getSessions();
+            if (currentSessionId) {
+                const idx = sessions.findIndex(s => s.id === currentSessionId);
+                if (idx !== -1) {
+                    sessions[idx].messages = JSON.parse(JSON.stringify(messages));
+                    sessions[idx].timestamp = Date.now();
+                    const firstUser = messages.find(m => m.type === 'user');
+                    sessions[idx].title = firstUser ? firstUser.text : '新对话';
+                    saveSessions(sessions);
+                    return;
+                }
+            }
+            const firstUser = messages.find(m => m.type === 'user');
+            const title = firstUser ? firstUser.text : '新对话';
+            const newSession = {
+                id: Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+                title: title,
+                messages: JSON.parse(JSON.stringify(messages)),
+                timestamp: Date.now(),
+                pinned: false
+            };
+            sessions.push(newSession);
+            saveSessions(sessions);
+            currentSessionId = newSession.id;
+        }
+
+        function loadSession(sessionId) {
+            const sessions = getSessions();
+            const session = sessions.find(s => s.id === sessionId);
+            if (!session) return false;
+            saveCurrentSession();
+            messages = JSON.parse(JSON.stringify(session.messages));
+            currentSessionId = sessionId;
             renderMessages();
             userInput.value = '';
             userInput.focus();
             statusMsg.textContent = '';
+            closeSidebar();
+            return true;
         }
 
+        function deleteSession(sessionId) {
+            let sessions = getSessions();
+            sessions = sessions.filter(s => s.id !== sessionId);
+            saveSessions(sessions);
+            if (currentSessionId === sessionId) {
+                resetChat();
+            }
+            renderHistory();
+        }
+
+        function togglePinned(sessionId) {
+            const sessions = getSessions();
+            const session = sessions.find(s => s.id === sessionId);
+            if (session) {
+                session.pinned = !session.pinned;
+                saveSessions(sessions);
+                renderHistory();
+            }
+        }
+
+        function renameSession(sessionId, newTitle) {
+            const sessions = getSessions();
+            const session = sessions.find(s => s.id === sessionId);
+            if (session) {
+                session.title = newTitle;
+                saveSessions(sessions);
+                renderHistory();
+            }
+        }
+
+        // ============================================================
+        // 4. 工具函数
+        // ============================================================
         function estimateTokens(text) {
             if (!text) return 0;
-            let chineseCount = 0, otherCount = 0;
+            let chineseCount = 0,
+                otherCount = 0;
             for (let i = 0; i < text.length; i++) {
                 const code = text.charCodeAt(i);
                 if (code >= 0x4E00 && code <= 0x9FFF) chineseCount++;
@@ -876,14 +940,22 @@
             return Math.ceil(chineseCount * 1.5 + otherCount * 0.8);
         }
 
-        function renderMessages() {
-            chatBox.innerHTML = '';
-            let totalTokens = 0;
+        // 计算当前所有 AI 消息（不含欢迎）的 token 总和，用于累计显示
+        function getCurrentTotalTokens() {
+            let total = 0;
             messages.forEach((msg, idx) => {
                 if (msg.type === 'ai' && !(idx === 0 && msg.text === WELCOME_TEXT)) {
-                    totalTokens += estimateTokens(msg.text);
+                    total += estimateTokens(msg.text);
                 }
             });
+            return total;
+        }
+
+        // ============================================================
+        // 5. 聊天渲染（使用存储的累计值）
+        // ============================================================
+        function renderMessages() {
+            chatBox.innerHTML = '';
 
             messages.forEach((msg, index) => {
                 const wrapper = document.createElement('div');
@@ -927,9 +999,22 @@
                     if (showTokenStats) {
                         const text = msg.text || '';
                         const charCount = text.length;
+                        // 使用消息自身存储的 cumulativeTokens，如果没有则实时计算（兼容旧数据）
+                        let cumulative = msg.cumulativeTokens;
+                        if (cumulative === undefined) {
+                            // 兼容旧数据：重新计算截止到当前消息的累计值
+                            cumulative = 0;
+                            for (let i = 0; i <= index; i++) {
+                                if (messages[i].type === 'ai' && !(i === 0 && messages[i].text === WELCOME_TEXT)) {
+                                    cumulative += estimateTokens(messages[i].text);
+                                }
+                            }
+                            // 回填
+                            msg.cumulativeTokens = cumulative;
+                        }
                         const statsSpan = document.createElement('span');
                         statsSpan.className = 'token-stats';
-                        statsSpan.textContent = `字数: ${charCount} | Tokens: ${totalTokens}`;
+                        statsSpan.textContent = `字数: ${charCount} | Tokens: ${cumulative}`;
                         actions.appendChild(statsSpan);
                     }
 
@@ -952,11 +1037,12 @@
             cur = (cur + 1) % msg.versions.length;
             msg.currentVersion = cur;
             msg.text = msg.versions[cur];
+            // 版本切换时不需要重新计算 cumulativeTokens，保留原有值
             renderMessages();
         }
 
         // ============================================================
-        // 3. API 调用
+        // 6. API 调用
         // ============================================================
         function getApiKey() {
             return localStorage.getItem(STORAGE_KEYS.apiKey) || '';
@@ -1011,7 +1097,8 @@
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder('utf-8');
-            let buffer = '', fullReply = '';
+            let buffer = '',
+                fullReply = '';
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -1041,8 +1128,20 @@
         }
 
         // ============================================================
-        // 4. 核心操作
+        // 7. 核心操作（发送、编辑、重新生成）
         // ============================================================
+
+        function resetChat() {
+            saveCurrentSession();
+            messages = [
+                { type: 'ai', text: WELCOME_TEXT, versions: [WELCOME_TEXT], currentVersion: 0 }
+            ];
+            currentSessionId = null;
+            renderMessages();
+            userInput.value = '';
+            userInput.focus();
+            statusMsg.textContent = '';
+        }
 
         async function sendMessage() {
             const text = userInput.value.trim();
@@ -1059,6 +1158,7 @@
             const userMsg = { type: 'user', text: text };
             messages.push(userMsg);
             const aiMsg = { type: 'ai', text: '...', versions: ['...'], currentVersion: 0 };
+            // 占位消息不设置 cumulativeTokens，生成后再设置
             messages.push(aiMsg);
             renderMessages();
             userInput.value = '';
@@ -1081,10 +1181,16 @@
                     lastMsg.text = fullReply || '（AI没有返回内容）';
                     lastMsg.versions[0] = lastMsg.text;
                     lastMsg.currentVersion = 0;
+                    // 计算累计 token（基于当前所有 AI 消息）
+                    let cumulative = 0;
+                    for (let i = 0; i < messages.length; i++) {
+                        if (messages[i].type === 'ai' && !(i === 0 && messages[i].text === WELCOME_TEXT)) {
+                            cumulative += estimateTokens(messages[i].text);
+                        }
+                    }
+                    lastMsg.cumulativeTokens = cumulative;
                 }
-                if (fullReply.trim()) {
-                    addHistoryEntry(text, fullReply);
-                }
+                saveCurrentSession();
                 statusMsg.textContent = '';
             } catch (error) {
                 console.error(error);
@@ -1092,6 +1198,14 @@
                 if (lastMsg.type === 'ai') {
                     lastMsg.text = `❌ ${error.message || '未知错误'}`;
                     lastMsg.versions[0] = lastMsg.text;
+                    // 错误消息也计算累计值
+                    let cumulative = 0;
+                    for (let i = 0; i < messages.length; i++) {
+                        if (messages[i].type === 'ai' && !(i === 0 && messages[i].text === WELCOME_TEXT)) {
+                            cumulative += estimateTokens(messages[i].text);
+                        }
+                    }
+                    lastMsg.cumulativeTokens = cumulative;
                 }
                 statusMsg.textContent = '发送失败，请检查网络或设置';
             } finally {
@@ -1099,6 +1213,7 @@
                 sendBtn.disabled = false;
                 renderMessages();
                 userInput.focus();
+                renderHistory();
             }
         }
 
@@ -1114,6 +1229,7 @@
             if (newText === null || newText.trim() === '') return;
 
             messages[index].text = newText.trim();
+            // 删除该消息之后的所有消息（包括对应的AI消息）
             messages = messages.slice(0, index + 1);
             renderMessages();
             statusMsg.textContent = '重新生成中...';
@@ -1138,7 +1254,16 @@
                     lastMsg.text = fullReply || '（AI没有返回内容）';
                     lastMsg.versions[0] = lastMsg.text;
                     lastMsg.currentVersion = 0;
+                    // 计算累计 token
+                    let cumulative = 0;
+                    for (let i = 0; i < messages.length; i++) {
+                        if (messages[i].type === 'ai' && !(i === 0 && messages[i].text === WELCOME_TEXT)) {
+                            cumulative += estimateTokens(messages[i].text);
+                        }
+                    }
+                    lastMsg.cumulativeTokens = cumulative;
                 }
+                saveCurrentSession();
                 statusMsg.textContent = '';
             } catch (error) {
                 console.error(error);
@@ -1146,6 +1271,13 @@
                 if (lastMsg.type === 'ai') {
                     lastMsg.text = `❌ ${error.message || '未知错误'}`;
                     lastMsg.versions[0] = lastMsg.text;
+                    let cumulative = 0;
+                    for (let i = 0; i < messages.length; i++) {
+                        if (messages[i].type === 'ai' && !(i === 0 && messages[i].text === WELCOME_TEXT)) {
+                            cumulative += estimateTokens(messages[i].text);
+                        }
+                    }
+                    lastMsg.cumulativeTokens = cumulative;
                 }
                 statusMsg.textContent = '重新生成失败，请检查网络或设置';
             } finally {
@@ -1153,6 +1285,7 @@
                 sendBtn.disabled = false;
                 renderMessages();
                 userInput.focus();
+                renderHistory();
             }
         }
 
@@ -1176,15 +1309,11 @@
             }
             const userText = messages[userIndex].text;
 
-            messages = messages.slice(0, index + 1);
-            const aiMsg = messages[index];
-            if (!aiMsg.versions) {
-                aiMsg.versions = [aiMsg.text];
-                aiMsg.currentVersion = 0;
-            }
-            aiMsg.versions.push('...');
-            aiMsg.currentVersion = aiMsg.versions.length - 1;
-            aiMsg.text = '...';
+            // 保留当前AI消息之前的所有消息，删除该AI消息及其之后的消息
+            messages = messages.slice(0, index);
+            // 创建新的AI消息
+            const aiMsg = { type: 'ai', text: '...', versions: ['...'], currentVersion: 0 };
+            messages.push(aiMsg);
             renderMessages();
             statusMsg.textContent = '重新生成中...';
             sendBtn.disabled = true;
@@ -1192,31 +1321,55 @@
 
             try {
                 const fullReply = await generateAIResponse(userText, (chunk) => {
-                    const lastIdx = aiMsg.versions.length - 1;
-                    aiMsg.versions[lastIdx] = chunk;
-                    aiMsg.text = chunk;
-                    renderMessages();
+                    const lastMsg = messages[messages.length - 1];
+                    if (lastMsg.type === 'ai') {
+                        lastMsg.text = chunk;
+                        lastMsg.versions[0] = chunk;
+                        renderMessages();
+                    }
                 });
-                const lastIdx = aiMsg.versions.length - 1;
-                aiMsg.versions[lastIdx] = fullReply || '（AI没有返回内容）';
-                aiMsg.text = fullReply || '（AI没有返回内容）';
+                const lastMsg = messages[messages.length - 1];
+                if (lastMsg.type === 'ai') {
+                    lastMsg.text = fullReply || '（AI没有返回内容）';
+                    lastMsg.versions[0] = lastMsg.text;
+                    lastMsg.currentVersion = 0;
+                    // 计算累计 token
+                    let cumulative = 0;
+                    for (let i = 0; i < messages.length; i++) {
+                        if (messages[i].type === 'ai' && !(i === 0 && messages[i].text === WELCOME_TEXT)) {
+                            cumulative += estimateTokens(messages[i].text);
+                        }
+                    }
+                    lastMsg.cumulativeTokens = cumulative;
+                }
+                saveCurrentSession();
                 statusMsg.textContent = '';
             } catch (error) {
                 console.error(error);
-                const lastIdx = aiMsg.versions.length - 1;
-                aiMsg.versions[lastIdx] = `❌ ${error.message || '未知错误'}`;
-                aiMsg.text = `❌ ${error.message || '未知错误'}`;
+                const lastMsg = messages[messages.length - 1];
+                if (lastMsg.type === 'ai') {
+                    lastMsg.text = `❌ ${error.message || '未知错误'}`;
+                    lastMsg.versions[0] = lastMsg.text;
+                    let cumulative = 0;
+                    for (let i = 0; i < messages.length; i++) {
+                        if (messages[i].type === 'ai' && !(i === 0 && messages[i].text === WELCOME_TEXT)) {
+                            cumulative += estimateTokens(messages[i].text);
+                        }
+                    }
+                    lastMsg.cumulativeTokens = cumulative;
+                }
                 statusMsg.textContent = '重新生成失败，请检查网络或设置';
             } finally {
                 isGenerating = false;
                 sendBtn.disabled = false;
                 renderMessages();
                 userInput.focus();
+                renderHistory();
             }
         }
 
         // ============================================================
-        // 5. 事件绑定（点击用户消息）
+        // 8. 事件绑定（点击用户消息）
         // ============================================================
         chatBox.addEventListener('click', function(e) {
             const bubble = e.target.closest('.message');
@@ -1232,7 +1385,7 @@
         });
 
         // ============================================================
-        // 6. 设置管理
+        // 9. 设置管理
         // ============================================================
         function loadSettings() {
             const savedApiKey = localStorage.getItem(STORAGE_KEYS.apiKey) || '';
@@ -1295,12 +1448,14 @@
         }
 
         // ============================================================
-        // 7. 侧滑栏开关
+        // 10. 侧滑栏开关
         // ============================================================
         function openSidebar() {
             sidebar.classList.add('open');
             overlay.classList.add('active');
             document.body.style.overflow = 'hidden';
+            newChatBtn.style.pointerEvents = 'none';
+            newChatBtn.style.cursor = 'default';
             setTimeout(() => document.getElementById('search-input')?.focus(), 400);
             renderHistory();
         }
@@ -1308,6 +1463,8 @@
             sidebar.classList.remove('open');
             overlay.classList.remove('active');
             document.body.style.overflow = '';
+            newChatBtn.style.pointerEvents = '';
+            newChatBtn.style.cursor = '';
             hideContextMenu();
         }
         menuBtn.addEventListener('click', () => {
@@ -1320,7 +1477,7 @@
         overlay.addEventListener('click', closeSidebar);
 
         // ============================================================
-        // 8. 设置按钮事件
+        // 11. 设置按钮事件
         // ============================================================
         settingsBtn.addEventListener('click', openSettings);
         settingsSave.addEventListener('click', saveSettings);
@@ -1377,7 +1534,7 @@
         });
 
         // ============================================================
-        // 9. 搜索功能
+        // 12. 搜索功能
         // ============================================================
         const searchInput = document.getElementById('search-input');
         const searchBtn = document.getElementById('search-btn');
@@ -1396,90 +1553,32 @@
         });
 
         // ============================================================
-        // 10. 历史记录管理
+        // 13. 历史记录渲染
         // ============================================================
-        const STORAGE_KEY_HISTORY = 'chat_history';
-
-        function getHistory() {
-            const stored = localStorage.getItem(STORAGE_KEY_HISTORY);
-            return stored ? JSON.parse(stored) : [];
-        }
-
-        function saveHistory(history) {
-            localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
-        }
-
-        function addHistoryEntry(userMessage, aiReply) {
-            const history = getHistory();
-            const entry = {
-                id: Date.now() + '_' + Math.random().toString(36).substr(2, 6),
-                userMessage: userMessage,
-                aiReply: aiReply,
-                timestamp: Date.now(),
-                pinned: false
-            };
-            history.push(entry);
-            saveHistory(history);
-            renderHistory();
-        }
-
-        function updateHistoryEntry(id, updates) {
-            const history = getHistory();
-            const idx = history.findIndex(h => h.id === id);
-            if (idx !== -1) {
-                history[idx] = { ...history[idx], ...updates };
-                saveHistory(history);
-                renderHistory();
-            }
-        }
-
-        function deleteHistoryEntry(id) {
-            let history = getHistory();
-            history = history.filter(h => h.id !== id);
-            saveHistory(history);
-            renderHistory();
-            hideContextMenu();
-        }
-
         function renderHistory() {
-            const history = getHistory();
-
+            const sessions = getSessions();
             let html = '<div class="history-main-title">历史记录</div>';
 
-            if (history.length === 0) {
+            if (sessions.length === 0) {
                 html += '<div class="no-history">暂无对话记录</div>';
                 historyContainer.innerHTML = html;
                 return;
             }
 
-            const pinned = history.filter(h => h.pinned);
-            const unpinned = history.filter(h => !h.pinned);
-
-            const groups = {};
-            unpinned.forEach(entry => {
-                const date = new Date(entry.timestamp);
-                const dateStr = date.getFullYear() + '-' +
-                                String(date.getMonth() + 1).padStart(2, '0') + '-' +
-                                String(date.getDate()).padStart(2, '0');
-                if (!groups[dateStr]) groups[dateStr] = [];
-                groups[dateStr].push(entry);
-            });
-            const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+            const pinned = sessions.filter(s => s.pinned);
+            const unpinned = sessions.filter(s => !s.pinned);
+            pinned.sort((a, b) => b.timestamp - a.timestamp);
+            unpinned.sort((a, b) => b.timestamp - a.timestamp);
 
             if (pinned.length > 0) {
-                html += `<div class="history-date">📌 置顶</div>`;
-                const sortedPinned = pinned.sort((a, b) => a.timestamp - b.timestamp);
-                sortedPinned.forEach(entry => {
-                    html += buildHistoryItemHtml(entry);
+                html += `<div class="history-date" style="font-weight:600;color:#888;font-size:14px;margin:10px 0 8px;padding-bottom:4px;border-bottom:1px solid #eee;">📌 置顶</div>`;
+                pinned.forEach(session => {
+                    html += buildSessionItemHtml(session);
                 });
             }
 
-            sortedDates.forEach(dateStr => {
-                html += `<div class="history-date">${dateStr}</div>`;
-                const entries = groups[dateStr].sort((a, b) => a.timestamp - b.timestamp);
-                entries.forEach(entry => {
-                    html += buildHistoryItemHtml(entry);
-                });
+            unpinned.forEach(session => {
+                html += buildSessionItemHtml(session);
             });
 
             historyContainer.innerHTML = html;
@@ -1491,13 +1590,7 @@
                         return;
                     }
                     const id = this.dataset.id;
-                    const history = getHistory();
-                    const entry = history.find(h => h.id === id);
-                    if (entry) {
-                        userInput.value = entry.userMessage;
-                        userInput.focus();
-                        closeSidebar();
-                    }
+                    loadSession(id);
                 });
             });
 
@@ -1513,21 +1606,19 @@
             });
         }
 
-        function buildHistoryItemHtml(entry) {
-            const preview = entry.aiReply.length > 60 ? entry.aiReply.substring(0, 60) + '…' : entry.aiReply;
-            const timeStr = new Date(entry.timestamp).toLocaleTimeString('zh-CN', {
+        function buildSessionItemHtml(session) {
+            const timeStr = new Date(session.timestamp).toLocaleTimeString('zh-CN', {
                 hour: '2-digit',
                 minute: '2-digit',
                 hour12: false
             });
-            const pinnedClass = entry.pinned ? 'pinned' : '';
+            const pinnedClass = session.pinned ? 'pinned' : '';
             return `
-                <div class="history-item ${pinnedClass}" data-id="${entry.id}" data-longpress="false">
+                <div class="history-item ${pinnedClass}" data-id="${session.id}" data-longpress="false">
                     <div class="question-row">
-                        <span class="question-text">${escapeHtml(entry.userMessage)}</span>
+                        <span class="question-text">${escapeHtml(session.title)}</span>
                         <span class="time">${timeStr}</span>
                     </div>
-                    <div class="answer-preview">${escapeHtml(preview)}</div>
                 </div>
             `;
         }
@@ -1540,7 +1631,8 @@
 
         // --- 长按处理 ---
         let longPressTimer = null;
-        let touchStartX = 0, touchStartY = 0;
+        let touchStartX = 0,
+            touchStartY = 0;
 
         function handleTouchStart(e) {
             const touch = e.touches[0];
@@ -1610,35 +1702,32 @@
 
         document.getElementById('menu-rename').addEventListener('click', function() {
             if (!activeItemId) return;
-            const history = getHistory();
-            const entry = history.find(h => h.id === activeItemId);
-            if (!entry) return;
-            const newTitle = prompt('请输入新的标题（将替换用户问题）：', entry.userMessage);
+            const sessions = getSessions();
+            const session = sessions.find(s => s.id === activeItemId);
+            if (!session) return;
+            const newTitle = prompt('请输入新的标题：', session.title);
             if (newTitle !== null && newTitle.trim() !== '') {
-                updateHistoryEntry(activeItemId, { userMessage: newTitle.trim() });
+                renameSession(activeItemId, newTitle.trim());
             }
             hideContextMenu();
         });
 
         document.getElementById('menu-pin').addEventListener('click', function() {
             if (!activeItemId) return;
-            const history = getHistory();
-            const entry = history.find(h => h.id === activeItemId);
-            if (!entry) return;
-            updateHistoryEntry(activeItemId, { pinned: !entry.pinned });
+            togglePinned(activeItemId);
             hideContextMenu();
         });
 
         document.getElementById('menu-delete').addEventListener('click', function() {
             if (!activeItemId) return;
-            if (confirm('确定要删除这条记录吗？')) {
-                deleteHistoryEntry(activeItemId);
+            if (confirm('确定要删除这个对话记录吗？')) {
+                deleteSession(activeItemId);
             }
             hideContextMenu();
         });
 
         // ============================================================
-        // 11. 发送和新建
+        // 14. 发送和新建
         // ============================================================
         sendBtn.addEventListener('click', sendMessage);
         userInput.addEventListener('keypress', (e) => {
@@ -1646,19 +1735,29 @@
         });
 
         newChatBtn.addEventListener('click', function() {
+            if (sidebar.classList.contains('open')) {
+                return;
+            }
             if (isGenerating) {
                 alert('正在生成中，请稍候');
                 return;
             }
             resetChat();
+            renderHistory();
         });
 
         // ============================================================
-        // 12. 初始化
+        // 15. 初始化
         // ============================================================
         function init() {
             loadSettings();
-            resetChat();
+            const sessions = getSessions();
+            if (sessions.length > 0) {
+                sessions.sort((a, b) => b.timestamp - a.timestamp);
+                loadSession(sessions[0].id);
+            } else {
+                resetChat();
+            }
             renderHistory();
             userInput.focus();
         }
