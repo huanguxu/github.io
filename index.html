@@ -204,12 +204,12 @@
         }
         #menu-btn {
             left: 20px;
-            font-size: 28px;        /* 缩小至28px */
-            font-weight: 700;       /* 保持加粗 */
+            font-size: 28px;
+            font-weight: 700;
         }
         #new-chat-btn {
             right: 20px;
-            font-size: 40px;        /* 保持放大 */
+            font-size: 40px;
             font-weight: 400;
         }
         #menu-btn:active,
@@ -366,7 +366,7 @@
             font-size: 15px;
         }
 
-        /* 底部设置 */
+        /* 底部设置（图标放大） */
         .sidebar-footer {
             margin-top: 50px;
             border-top: 1px solid #f0f0f0;
@@ -393,8 +393,8 @@
             opacity: 0.7;
         }
         #settings-btn svg {
-            width: 26px;
-            height: 26px;
+            width: 32px;           /* 放大至32px */
+            height: 32px;
             fill: #f8bbd0;
             transition: fill 0.2s;
         }
@@ -641,19 +641,19 @@
             }
             #menu-btn {
                 left: 16px;
-                font-size: 24px;   /* 移动端缩小至24px */
+                font-size: 24px;
                 font-weight: 700;
             }
             #new-chat-btn {
                 right: 16px;
-                font-size: 34px;   /* 移动端保持与按钮高度一致 */
+                font-size: 34px;
                 font-weight: 400;
             }
             .search-container input { font-size: 14px; padding: 8px 14px; }
             .search-container button { font-size: 14px; padding: 8px 14px; }
             #settings-btn svg {
-                width: 22px;
-                height: 22px;
+                width: 28px;           /* 移动端放大至28px */
+                height: 28px;
             }
             .sidebar-footer {
                 padding: 12px 0;
@@ -715,9 +715,9 @@
         <div id="status-message" class="status"></div>
     </div>
 
-    <!-- 菜单按钮（已缩小） -->
+    <!-- 菜单按钮 -->
     <button id="menu-btn" aria-label="打开侧边栏">☰</button>
-    <!-- 加号按钮（保持放大） -->
+    <!-- 加号按钮 -->
     <button id="new-chat-btn" aria-label="新建对话">+</button>
 
     <!-- 遮罩 -->
@@ -943,6 +943,11 @@
             return Math.ceil(chineseCount * 1.5 + otherCount * 0.8);
         }
 
+        // 获取记忆策略
+        function getMemoryStrategy() {
+            return localStorage.getItem(STORAGE_KEYS.memoryStrategy) || 'compress';
+        }
+
         // ============================================================
         // 5. 聊天渲染（使用存储的累计值）
         // ============================================================
@@ -1030,7 +1035,7 @@
         }
 
         // ============================================================
-        // 6. API 调用
+        // 6. API 调用（携带完整历史）
         // ============================================================
         function getApiKey() {
             return localStorage.getItem(STORAGE_KEYS.apiKey) || '';
@@ -1050,10 +1055,27 @@
             ]);
         }
 
-        async function generateAIResponse(userMessage, onChunk) {
+        async function generateAIResponse(historyMessages, onChunk) {
             const apiKey = getApiKey();
             if (!apiKey) throw new Error('请先在设置中填写 API Key');
             const model = getModel();
+
+            const strategy = getMemoryStrategy();
+            let historyToSend = historyMessages;
+            if (strategy === 'compress' && historyMessages.length > 100) {
+                historyToSend = historyMessages.slice(-100);
+            }
+
+            const apiMessages = [
+                { role: 'system', content: 'You are a helpful assistant.' }
+            ];
+            historyToSend.forEach(msg => {
+                if (msg.type === 'user') {
+                    apiMessages.push({ role: 'user', content: msg.text });
+                } else if (msg.type === 'ai') {
+                    apiMessages.push({ role: 'assistant', content: msg.text });
+                }
+            });
 
             const requestOptions = {
                 method: 'POST',
@@ -1063,10 +1085,7 @@
                 },
                 body: JSON.stringify({
                     model: model,
-                    messages: [
-                        { role: 'system', content: 'You are a helpful assistant.' },
-                        { role: 'user', content: userMessage }
-                    ],
+                    messages: apiMessages,
                     stream: true
                 })
             };
@@ -1155,7 +1174,8 @@
             isGenerating = true;
 
             try {
-                const fullReply = await generateAIResponse(text, (chunk) => {
+                const history = messages.slice(0, -1);
+                const fullReply = await generateAIResponse(history, (chunk) => {
                     const lastMsg = messages[messages.length - 1];
                     if (lastMsg.type === 'ai') {
                         lastMsg.text = chunk;
@@ -1225,7 +1245,8 @@
                 messages.push(aiMsg);
                 renderMessages();
 
-                const fullReply = await generateAIResponse(newText.trim(), (chunk) => {
+                const history = messages.slice(0, -1);
+                const fullReply = await generateAIResponse(history, (chunk) => {
                     const lastMsg = messages[messages.length - 1];
                     if (lastMsg.type === 'ai') {
                         lastMsg.text = chunk;
@@ -1290,7 +1311,6 @@
                 alert('无法找到对应的用户消息');
                 return;
             }
-            const userText = messages[userIndex].text;
 
             messages = messages.slice(0, index);
             const aiMsg = { type: 'ai', text: '...', versions: ['...'], currentVersion: 0 };
@@ -1301,7 +1321,8 @@
             isGenerating = true;
 
             try {
-                const fullReply = await generateAIResponse(userText, (chunk) => {
+                const history = messages.slice(0, -1);
+                const fullReply = await generateAIResponse(history, (chunk) => {
                     const lastMsg = messages[messages.length - 1];
                     if (lastMsg.type === 'ai') {
                         lastMsg.text = chunk;
