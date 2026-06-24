@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>FENG'S DS</title>
     <style>
-        /* 样式与之前完全相同，为节省篇幅省略，但实际输出会包含完整样式 */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body {
             height: 100%;
@@ -77,6 +76,23 @@
         .user-message:hover {
             background: #fce4ec;
         }
+        .user-message.editing {
+            cursor: default;
+            background: white;
+            border: 2px solid #f8bbd0;
+            padding: 4px;
+        }
+        .user-message.editing textarea {
+            width: 100%;
+            border: none;
+            outline: none;
+            resize: vertical;
+            font-family: inherit;
+            font-size: inherit;
+            padding: 4px 8px;
+            background: transparent;
+            min-height: 40px;
+        }
         .ai-message {
             background: white;
             color: black;
@@ -138,9 +154,15 @@
         }
         .input-area {
             display: flex;
-            gap: 10px;
-            margin-top: 16px;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 12px;
             flex-shrink: 0;
+        }
+        .input-row {
+            display: flex;
+            gap: 10px;
+            align-items: stretch;
         }
         #user-input {
             flex: 1;
@@ -149,7 +171,12 @@
             border-radius: 24px;
             outline: none;
             font-size: 16px;
+            font-family: inherit;
             background: white;
+            resize: vertical;
+            min-height: 52px;
+            max-height: 200px;
+            line-height: 1.4;
         }
         #send-btn {
             background: #f8bbd0;
@@ -162,6 +189,8 @@
             cursor: pointer;
             transition: background 0.2s, transform 0.1s;
             white-space: nowrap;
+            height: 52px;
+            align-self: stretch;
         }
         #send-btn:active {
             background: #f48fb1;
@@ -173,11 +202,32 @@
             cursor: not-allowed;
             transform: none;
         }
+        .input-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 4px;
+        }
+        .deep-think-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            color: #555;
+            cursor: pointer;
+            user-select: none;
+        }
+        .deep-think-toggle input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #f8bbd0;
+            cursor: pointer;
+        }
         .status {
             text-align: center;
             color: #888;
             font-style: italic;
-            margin-top: 6px;
+            margin-top: 4px;
             min-height: 20px;
             font-size: 14px;
             flex-shrink: 0;
@@ -706,12 +756,18 @@
             .history-item .time {
                 font-size: 11px;
             }
-            .input-area {
-                margin-top: 14px;
+            .input-row #user-input {
+                min-height: 44px;
+                font-size: 15px;
+                padding: 10px 14px;
             }
             #send-btn {
+                height: 44px;
                 font-size: 15px;
                 padding: 10px 18px;
+            }
+            .deep-think-toggle {
+                font-size: 13px;
             }
         }
     </style>
@@ -725,8 +781,16 @@
             <!-- 由 JS 渲染 -->
         </div>
         <div class="input-area">
-            <input type="text" id="user-input" placeholder="" />
-            <button id="send-btn">发送</button>
+            <div class="input-row">
+                <textarea id="user-input" placeholder="输入你的问题..."></textarea>
+                <button id="send-btn">发送</button>
+            </div>
+            <div class="input-controls">
+                <label class="deep-think-toggle">
+                    <input type="checkbox" id="deep-think-checkbox" />
+                    深度思考
+                </label>
+            </div>
         </div>
         <div id="status-message" class="status"></div>
     </div>
@@ -838,6 +902,7 @@
         const settingsBtn = document.getElementById('settings-btn');
         const searchInput = document.getElementById('search-input');
         const searchBtn = document.getElementById('search-btn');
+        const deepThinkCheckbox = document.getElementById('deep-think-checkbox');
 
         const settingsOverlay = document.getElementById('settings-overlay');
         const apiKeyInput = document.getElementById('api-key-input');
@@ -860,6 +925,11 @@
         let showTokenStats = true;
         let currentSessionId = null;
         let searchKeyword = '';
+        let deepThinkingEnabled = false;
+
+        // 编辑状态
+        let editingUserIndex = -1;          // 正在编辑的用户消息索引
+        let editingDraft = '';              // 草稿内容
 
         // ============================================================
         // 3. 数据管理（会话存储）
@@ -907,6 +977,8 @@
             const sessions = getSessions();
             const session = sessions.find(s => s.id === sessionId);
             if (!session) return false;
+            // 退出编辑状态
+            exitEditMode(true);
             saveCurrentSession();
             messages = JSON.parse(JSON.stringify(session.messages));
             currentSessionId = sessionId;
@@ -966,38 +1038,27 @@
             return localStorage.getItem(STORAGE_KEYS.memoryStrategy) || 'no-compress';
         }
 
-        // 确保 AI 消息的 versions 是对象数组，每个对象有 { text, cumulativeTokens }
         function ensureVersionObjects(msg) {
             if (!msg.versions) {
-                // 旧数据：可能是字符串数组，或者未定义
                 msg.versions = [{ text: msg.text, cumulativeTokens: msg.cumulativeTokens || 0 }];
                 msg.currentVersion = 0;
             } else if (msg.versions.length > 0 && typeof msg.versions[0] === 'string') {
-                // 如果是字符串数组，转换为对象数组
                 const oldVersions = msg.versions;
                 msg.versions = oldVersions.map((text, idx) => {
-                    // 尝试从旧数据获取累计值，若没有则设为0（但最好重新计算）
-                    // 这里简化为从现有消息中计算，但会在渲染时重新计算
                     return { text: text, cumulativeTokens: 0 };
                 });
-                // 尝试恢复 cumulativeTokens 的值
                 if (msg.cumulativeTokens !== undefined) {
-                    // 将当前累计值赋给当前版本
                     const cur = msg.currentVersion || 0;
                     if (msg.versions[cur]) {
                         msg.versions[cur].cumulativeTokens = msg.cumulativeTokens;
                     }
                 }
-                // 重新计算所有版本的累计值，但需要知道每个版本生成时的累计，无法复原，只能粗略处理：让当前版本有累计，其他版本设为0
-                // 这里我们保留当前版本的累计，其他版本暂设为0
             }
-            // 确保当前版本索引有效
             if (msg.currentVersion === undefined || msg.currentVersion >= msg.versions.length) {
                 msg.currentVersion = 0;
             }
         }
 
-        // 计算当前所有 AI 消息（不含欢迎）的 token 总和
         function calculateTotalTokens() {
             let total = 0;
             for (let i = 0; i < messages.length; i++) {
@@ -1010,13 +1071,131 @@
         }
 
         // ============================================================
-        // 5. 聊天渲染
+        // 5. 编辑模式管理
+        // ============================================================
+        function enterEditMode(index) {
+            // 退出之前的编辑
+            exitEditMode(true);
+            const msg = messages[index];
+            if (!msg || msg.type !== 'user') return;
+            editingUserIndex = index;
+            editingDraft = msg.text;
+            renderMessages();
+            // 聚焦到 textarea
+            const textarea = document.querySelector(`.user-message.editing textarea`);
+            if (textarea) {
+                textarea.focus();
+                textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+            }
+        }
+
+        function exitEditMode(saveDraft = true) {
+            if (editingUserIndex >= 0) {
+                const msg = messages[editingUserIndex];
+                if (msg && saveDraft) {
+                    // 保存草稿到消息的编辑草稿字段
+                    msg.editedText = editingDraft;
+                }
+                editingUserIndex = -1;
+                editingDraft = '';
+                renderMessages();
+            }
+        }
+
+        function commitEdit() {
+            if (editingUserIndex < 0) return;
+            const msg = messages[editingUserIndex];
+            if (!msg) return;
+            // 使用草稿内容更新消息
+            const newText = editingDraft.trim();
+            if (newText && newText !== msg.text) {
+                msg.text = newText;
+                // 删除该消息之后的所有消息（包括对应的AI回复）
+                messages = messages.slice(0, editingUserIndex + 1);
+                // 退出编辑
+                editingUserIndex = -1;
+                editingDraft = '';
+                renderMessages();
+                // 触发重新生成
+                statusMsg.textContent = '重新生成中...';
+                sendBtn.disabled = true;
+                isGenerating = true;
+                // 异步重新生成
+                (async () => {
+                    try {
+                        const aiMsg = { type: 'ai', text: '...', versions: [{ text: '...', cumulativeTokens: 0 }],
+                            currentVersion: 0 };
+                        messages.push(aiMsg);
+                        renderMessages();
+                        const history = messages.slice(0, -1);
+                        const fullReply = await generateAIResponse(history, (chunk) => {
+                            const lastMsg = messages[messages.length - 1];
+                            if (lastMsg.type === 'ai') {
+                                lastMsg.text = chunk;
+                                lastMsg.versions[0].text = chunk;
+                                renderMessages();
+                            }
+                        });
+                        const lastMsg = messages[messages.length - 1];
+                        if (lastMsg.type === 'ai') {
+                            lastMsg.text = fullReply || '（AI没有返回内容）';
+                            lastMsg.versions[0].text = lastMsg.text;
+                            lastMsg.currentVersion = 0;
+                            const cumulative = calculateTotalTokens();
+                            lastMsg.versions[0].cumulativeTokens = cumulative;
+                            lastMsg.cumulativeTokens = cumulative;
+                        }
+                        saveCurrentSession();
+                        statusMsg.textContent = '';
+                    } catch (error) {
+                        console.error(error);
+                        const lastMsg = messages[messages.length - 1];
+                        if (lastMsg.type === 'ai') {
+                            lastMsg.text = `❌ ${error.message || '未知错误'}`;
+                            lastMsg.versions[0].text = lastMsg.text;
+                            const cumulative = calculateTotalTokens();
+                            lastMsg.versions[0].cumulativeTokens = cumulative;
+                            lastMsg.cumulativeTokens = cumulative;
+                        }
+                        statusMsg.textContent = '重新生成失败，请检查网络或设置';
+                    } finally {
+                        isGenerating = false;
+                        sendBtn.disabled = false;
+                        renderMessages();
+                    }
+                })();
+            } else {
+                // 内容未变，仅退出编辑
+                editingUserIndex = -1;
+                editingDraft = '';
+                renderMessages();
+            }
+        }
+
+        // 点击其他地方时，保存草稿但不提交
+        function saveDraftAndExit() {
+            if (editingUserIndex >= 0) {
+                const msg = messages[editingUserIndex];
+                if (msg) {
+                    const textarea = document.querySelector(`.user-message.editing textarea`);
+                    if (textarea) {
+                        editingDraft = textarea.value;
+                    }
+                    msg.editedText = editingDraft;
+                }
+                editingUserIndex = -1;
+                editingDraft = '';
+                renderMessages();
+            }
+        }
+
+        // ============================================================
+        // 6. 聊天渲染
         // ============================================================
         function renderMessages() {
             chatBox.innerHTML = '';
 
             messages.forEach((msg, index) => {
-                // 对于 AI 消息，确保 versions 是对象数组
                 if (msg.type === 'ai') {
                     ensureVersionObjects(msg);
                 }
@@ -1029,7 +1208,32 @@
                 if (msg.type === 'ai' && index === 0 && msg.text === WELCOME_TEXT) {
                     bubble.classList.add('welcome-message');
                 }
-                bubble.textContent = msg.text;
+
+                // 用户消息编辑模式
+                if (msg.type === 'user' && editingUserIndex === index) {
+                    bubble.classList.add('editing');
+                    const textarea = document.createElement('textarea');
+                    textarea.value = editingDraft !== undefined ? editingDraft : msg.text;
+                    textarea.addEventListener('input', (e) => {
+                        editingDraft = e.target.value;
+                    });
+                    textarea.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                            e.preventDefault();
+                            commitEdit();
+                        }
+                    });
+                    bubble.appendChild(textarea);
+                    // 自动调整高度
+                    textarea.style.height = 'auto';
+                    textarea.style.height = textarea.scrollHeight + 'px';
+                    textarea.addEventListener('input', () => {
+                        textarea.style.height = 'auto';
+                        textarea.style.height = textarea.scrollHeight + 'px';
+                    });
+                } else {
+                    bubble.textContent = msg.text;
+                }
                 bubble.dataset.index = index;
                 wrapper.appendChild(bubble);
 
@@ -1062,22 +1266,18 @@
                     if (showTokenStats) {
                         const text = msg.text || '';
                         const charCount = text.length;
-                        // 累计 token 从当前版本的 cumulativeTokens 读取
                         let cumulative = msg.cumulativeTokens;
                         if (cumulative === undefined) {
-                            // 如果未定义，尝试从 versions 当前版本获取
                             const cur = msg.currentVersion || 0;
                             if (msg.versions && msg.versions[cur] && msg.versions[cur].cumulativeTokens !== undefined) {
                                 cumulative = msg.versions[cur].cumulativeTokens;
                             } else {
-                                // 否则实时计算（兼容旧数据）
                                 cumulative = 0;
                                 for (let i = 0; i <= index; i++) {
                                     if (messages[i].type === 'ai' && !(i === 0 && messages[i].text === WELCOME_TEXT)) {
                                         cumulative += estimateTokens(messages[i].text);
                                     }
                                 }
-                                // 回填到当前版本
                                 if (msg.versions && msg.versions[cur]) {
                                     msg.versions[cur].cumulativeTokens = cumulative;
                                 }
@@ -1098,7 +1298,6 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        // 翻页功能（版本切换）
         function cycleVersion(index) {
             const msg = messages[index];
             if (!msg || msg.type !== 'ai') return;
@@ -1110,7 +1309,6 @@
             let cur = msg.currentVersion !== undefined ? msg.currentVersion : 0;
             cur = (cur + 1) % msg.versions.length;
             msg.currentVersion = cur;
-            // 更新文本和累计 token
             const versionData = msg.versions[cur];
             msg.text = versionData.text;
             msg.cumulativeTokens = versionData.cumulativeTokens;
@@ -1118,7 +1316,7 @@
         }
 
         // ============================================================
-        // 6. API 调用
+        // 7. API 调用（支持深度思考）
         // ============================================================
         function getApiKey() {
             return localStorage.getItem(STORAGE_KEYS.apiKey) || '';
@@ -1149,8 +1347,14 @@
                 historyToSend = historyMessages.slice(-100);
             }
 
+            // 构建系统提示词，根据深度思考开关添加指示
+            let systemContent = 'You are a highly intelligent assistant that remembers the full conversation context. Always refer back to previous exchanges to provide coherent and accurate responses.';
+            if (deepThinkingEnabled) {
+                systemContent += ' Please provide your reasoning process step by step before giving the final answer. Make sure to clearly separate the reasoning from the final answer.';
+            }
+
             const apiMessages = [
-                { role: 'system', content: 'You are a highly intelligent assistant that remembers the full conversation context. Always refer back to previous exchanges to provide coherent and accurate responses.' }
+                { role: 'system', content: systemContent }
             ];
             historyToSend.forEach(msg => {
                 if (msg.type === 'user') {
@@ -1218,7 +1422,7 @@
         }
 
         // ============================================================
-        // 7. 核心操作
+        // 8. 核心操作
         // ============================================================
 
         function resetChat() {
@@ -1227,6 +1431,8 @@
                 { type: 'ai', text: WELCOME_TEXT, versions: [{ text: WELCOME_TEXT, cumulativeTokens: 0 }], currentVersion: 0 }
             ];
             currentSessionId = null;
+            editingUserIndex = -1;
+            editingDraft = '';
             renderMessages();
             userInput.value = '';
             statusMsg.textContent = '';
@@ -1237,6 +1443,11 @@
             if (!text) return;
             if (isGenerating) {
                 alert('正在生成中，请稍候');
+                return;
+            }
+            // 如果有编辑中的用户消息，先提交编辑
+            if (editingUserIndex >= 0) {
+                commitEdit();
                 return;
             }
 
@@ -1269,7 +1480,6 @@
                     lastMsg.text = fullReply || '（AI没有返回内容）';
                     lastMsg.versions[0].text = lastMsg.text;
                     lastMsg.currentVersion = 0;
-                    // 计算累计 token（基于当前所有 AI 消息）
                     const cumulative = calculateTotalTokens();
                     lastMsg.versions[0].cumulativeTokens = cumulative;
                     lastMsg.cumulativeTokens = cumulative;
@@ -1294,70 +1504,7 @@
             }
         }
 
-        async function editUserMessage(index) {
-            if (isGenerating) {
-                alert('正在生成中，请稍候');
-                return;
-            }
-            if (index < 0 || index >= messages.length || messages[index].type !== 'user') return;
-
-            const oldText = messages[index].text;
-            const newText = prompt('修改你的问题：', oldText);
-            if (newText === null || newText.trim() === '') return;
-
-            messages[index].text = newText.trim();
-            messages = messages.slice(0, index + 1);
-            renderMessages();
-            statusMsg.textContent = '重新生成中...';
-            sendBtn.disabled = true;
-            isGenerating = true;
-
-            try {
-                const aiMsg = { type: 'ai', text: '...', versions: [{ text: '...', cumulativeTokens: 0 }], currentVersion: 0 };
-                messages.push(aiMsg);
-                renderMessages();
-
-                const history = messages.slice(0, -1);
-                const fullReply = await generateAIResponse(history, (chunk) => {
-                    const lastMsg = messages[messages.length - 1];
-                    if (lastMsg.type === 'ai') {
-                        lastMsg.text = chunk;
-                        lastMsg.versions[0].text = chunk;
-                        renderMessages();
-                    }
-                });
-                const lastMsg = messages[messages.length - 1];
-                if (lastMsg.type === 'ai') {
-                    lastMsg.text = fullReply || '（AI没有返回内容）';
-                    lastMsg.versions[0].text = lastMsg.text;
-                    lastMsg.currentVersion = 0;
-                    const cumulative = calculateTotalTokens();
-                    lastMsg.versions[0].cumulativeTokens = cumulative;
-                    lastMsg.cumulativeTokens = cumulative;
-                }
-                saveCurrentSession();
-                statusMsg.textContent = '';
-            } catch (error) {
-                console.error(error);
-                const lastMsg = messages[messages.length - 1];
-                if (lastMsg.type === 'ai') {
-                    lastMsg.text = `❌ ${error.message || '未知错误'}`;
-                    lastMsg.versions[0].text = lastMsg.text;
-                    const cumulative = calculateTotalTokens();
-                    lastMsg.versions[0].cumulativeTokens = cumulative;
-                    lastMsg.cumulativeTokens = cumulative;
-                }
-                statusMsg.textContent = '重新生成失败，请检查网络或设置';
-            } finally {
-                isGenerating = false;
-                sendBtn.disabled = false;
-                renderMessages();
-            }
-        }
-
-        // ============================================================
-        // ★★★ 核心修复：重新生成时，每个版本独立存储累计 token ★★★
-        // ============================================================
+        // 重新生成 AI 消息（保留版本）
         async function regenerateAIMessage(index) {
             if (isGenerating) {
                 alert('正在生成中，请稍候');
@@ -1365,7 +1512,6 @@
             }
             if (index < 0 || index >= messages.length || messages[index].type !== 'ai') return;
 
-            // 查找对应的用户消息
             let userIndex = -1;
             for (let i = index - 1; i >= 0; i--) {
                 if (messages[i].type === 'user') {
@@ -1379,28 +1525,13 @@
             }
             const userText = messages[userIndex].text;
 
-            // 获取当前 AI 消息对象
             const aiMsg = messages[index];
             ensureVersionObjects(aiMsg);
 
-            // 计算当前所有 AI 消息的 token 总和（不包括当前消息，因为还没生成新版本）
-            // 但当前消息已存在，其 token 会被计入，我们需要的是：在生成新版本前，计算出所有 AI 消息（包括当前消息的旧版本）的总和作为新版本的累计？不，新版本应该基于当前所有 AI 消息（包括旧版本）的 token 总和，因为旧版本已经消耗了 token。
-            // 但用户期望的是：新版本的累计 token = 之前所有 AI 消息的 token 总和 + 新生成的 token。
-            // 所以我们需要在生成新版本时，先计算当前 messages 中所有 AI 消息（不包括欢迎）的 token 总和，然后加上新生成的 token。
-            // 更准确的做法：先计算当前所有 AI 消息的 token 总和（作为基准），然后生成新版本时，最终累计 = 基准 + 新版本 token。
-            // 但由于我们无法预知新版本 token 数量，只能在生成完成后计算。
-            // 简单做法：新版本的累计 token 等于生成完成后整个 messages 中所有 AI 消息的 token 总和。
-            // 这样，每次重新生成，新版本的累计 token 会等于当前所有 AI 消息（包括新生成的）的 token 总和。
-            // 用户希望翻到旧版本时，旧版本的累计 token 保持不变（即该版本生成时的累计）。
-            // 所以我们需要在生成新版本时，将新版本的累计 token 存储为生成完成后的总累计值。
-
-            // 添加新版本占位（对象）
             aiMsg.versions.push({ text: '...', cumulativeTokens: 0 });
-            // 将当前版本指向新版本
             aiMsg.currentVersion = aiMsg.versions.length - 1;
             aiMsg.text = '...';
 
-            // 删除该 AI 消息之后的所有消息
             messages = messages.slice(0, index + 1);
 
             renderMessages();
@@ -1421,7 +1552,6 @@
                 aiMsg.versions[lastIdx].text = fullReply || '（AI没有返回内容）';
                 aiMsg.text = fullReply || '（AI没有返回内容）';
 
-                // ★★★ 计算整个对话中所有 AI 消息的 token 总和 ★★★
                 const cumulative = calculateTotalTokens();
                 aiMsg.versions[lastIdx].cumulativeTokens = cumulative;
                 aiMsg.cumulativeTokens = cumulative;
@@ -1445,9 +1575,22 @@
         }
 
         // ============================================================
-        // 8. 事件绑定（点击用户消息）
+        // 9. 事件绑定（点击用户消息 -> 进入编辑模式）
         // ============================================================
         chatBox.addEventListener('click', function(e) {
+            // 如果点击的是编辑中的 textarea，不处理（由内部事件处理）
+            if (e.target.tagName === 'TEXTAREA') return;
+
+            // 如果点击在编辑气泡外，保存草稿并退出
+            if (editingUserIndex >= 0) {
+                const bubble = e.target.closest('.message-wrapper');
+                if (!bubble || !bubble.querySelector('.user-message.editing')) {
+                    saveDraftAndExit();
+                    return;
+                }
+            }
+
+            // 点击用户消息（非编辑状态）进入编辑
             const bubble = e.target.closest('.message');
             if (!bubble) return;
             if (bubble.classList.contains('welcome-message')) return;
@@ -1456,12 +1599,38 @@
             const msg = messages[index];
             if (!msg) return;
             if (msg.type === 'user') {
-                editUserMessage(index);
+                // 如果该消息已有编辑草稿，使用草稿
+                if (msg.editedText !== undefined) {
+                    editingDraft = msg.editedText;
+                } else {
+                    editingDraft = msg.text;
+                }
+                enterEditMode(index);
+            }
+        });
+
+        // 点击其他空白区域保存草稿
+        document.addEventListener('click', function(e) {
+            if (editingUserIndex >= 0) {
+                const wrapper = e.target.closest('.message-wrapper');
+                if (!wrapper || !wrapper.querySelector('.user-message.editing')) {
+                    saveDraftAndExit();
+                }
+            }
+        });
+
+        // 按 ESC 键退出编辑（不保存）
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && editingUserIndex >= 0) {
+                editingUserIndex = -1;
+                editingDraft = '';
+                renderMessages();
+                e.preventDefault();
             }
         });
 
         // ============================================================
-        // 9. 设置管理
+        // 10. 设置管理
         // ============================================================
         function loadSettings() {
             const savedApiKey = localStorage.getItem(STORAGE_KEYS.apiKey) || '';
@@ -1524,7 +1693,7 @@
         }
 
         // ============================================================
-        // 10. 侧滑栏开关
+        // 11. 侧滑栏开关
         // ============================================================
         function openSidebar() {
             sidebar.classList.add('open');
@@ -1532,6 +1701,8 @@
             document.body.style.overflow = 'hidden';
             newChatBtn.style.pointerEvents = 'none';
             newChatBtn.style.cursor = 'default';
+            // 退出编辑
+            if (editingUserIndex >= 0) saveDraftAndExit();
             setTimeout(() => {
                 searchInput.focus();
                 renderHistory();
@@ -1555,7 +1726,7 @@
         overlay.addEventListener('click', closeSidebar);
 
         // ============================================================
-        // 11. 设置按钮事件
+        // 12. 设置按钮事件
         // ============================================================
         settingsBtn.addEventListener('click', openSettings);
         settingsSave.addEventListener('click', saveSettings);
@@ -1612,7 +1783,7 @@
         });
 
         // ============================================================
-        // 12. 搜索功能（实时过滤）
+        // 13. 搜索功能
         // ============================================================
         function performSearch() {
             searchKeyword = searchInput.value.trim().toLowerCase();
@@ -1623,7 +1794,7 @@
         searchBtn.addEventListener('click', performSearch);
 
         // ============================================================
-        // 13. 历史记录渲染
+        // 14. 历史记录渲染
         // ============================================================
         function renderHistory() {
             const sessions = getSessions();
@@ -1822,11 +1993,14 @@
         });
 
         // ============================================================
-        // 14. 发送和新建
+        // 15. 发送和新建
         // ============================================================
         sendBtn.addEventListener('click', sendMessage);
-        userInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
         });
 
         newChatBtn.addEventListener('click', function() {
@@ -1837,12 +2011,19 @@
                 alert('正在生成中，请稍候');
                 return;
             }
+            // 如果有编辑中的用户消息，退出编辑
+            if (editingUserIndex >= 0) saveDraftAndExit();
             resetChat();
             renderHistory();
         });
 
+        // 深度思考复选框事件
+        deepThinkCheckbox.addEventListener('change', function() {
+            deepThinkingEnabled = this.checked;
+        });
+
         // ============================================================
-        // 15. 初始化
+        // 16. 初始化
         // ============================================================
         function init() {
             loadSettings();
