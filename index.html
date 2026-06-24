@@ -5,8 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>FENG'S DS</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body {
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        html,
+        body {
             height: 100%;
             background: #f7f7f8;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -24,7 +29,7 @@
             margin: 0 auto;
             padding: 20px 16px 8px;
             background: white;
-            box-shadow: 0 0 20px rgba(0,0,0,0.05);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
             position: relative;
         }
         .main-content h1 {
@@ -137,12 +142,12 @@
             cursor: default;
         }
 
-        /* ===== 输入区域（深度思考按钮在第一行，输入框第二行） ===== */
+        /* ===== 输入区域 ===== */
         .input-area {
             display: flex;
             flex-direction: column;
             gap: 6px;
-            margin-top: 120px;
+            margin-top: 12px;
             flex-shrink: 0;
         }
         .input-controls {
@@ -150,13 +155,12 @@
             justify-content: flex-start;
             padding: 0 4px;
         }
-        /* 深度思考按钮（椭圆形） */
         .deep-think-toggle {
             background: transparent;
-            border: 2px solid #f8bbd0;
+            border: 1px solid #f8bbd0;  /* 修改为 1px，与输入框一致 */
             border-radius: 50px;
-            padding: 6px 24px;
-            font-size: 18px;
+            padding: 2px 10px;
+            font-size: 12px;
             font-weight: 500;
             color: #888;
             cursor: pointer;
@@ -167,12 +171,12 @@
             user-select: none;
         }
         .deep-think-toggle:hover {
-            background: rgba(248,187,208,0.05);
+            background: rgba(248, 187, 208, 0.05);
         }
         .deep-think-toggle.active {
             color: #f8bbd0;
             border-color: #f8bbd0;
-            background: rgba(248,187,208,0.1);
+            background: rgba(248, 187, 208, 0.1);
         }
         .input-row {
             display: flex;
@@ -254,7 +258,9 @@
             font-size: 14px;
             flex-shrink: 0;
         }
-        .error { color: #d32f2f; }
+        .error {
+            color: #d32f2f;
+        }
 
         /* ===== 菜单按钮与加号 ===== */
         #menu-btn,
@@ -300,7 +306,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.4);
+            background: rgba(0, 0, 0, 0.4);
             z-index: 999;
             opacity: 0;
             visibility: hidden;
@@ -320,7 +326,7 @@
             height: 100%;
             background: white;
             z-index: 1000;
-            box-shadow: 2px 0 12px rgba(0,0,0,0.1);
+            box-shadow: 2px 0 12px rgba(0, 0, 0, 0.1);
             transform: translateX(-100%);
             transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
             overflow-y: auto;
@@ -399,10 +405,14 @@
             align-self: flex-start;
             letter-spacing: 0.3px;
         }
+
+        /* ===== 修改历史记录项为两行布局 ===== */
         .history-item {
+            display: flex;
+            flex-direction: column;
             background: #f9f9f9;
             border-radius: 10px;
-            padding: 8px 12px;
+            padding: 10px 12px;
             margin-bottom: 6px;
             cursor: pointer;
             transition: background 0.2s;
@@ -410,6 +420,9 @@
             position: relative;
             user-select: none;
             flex-shrink: 0;
+            min-height: 60px;
+            justify-content: center;
+            gap: 4px;
         }
         .history-item:hover {
             background: #f0f0f0;
@@ -422,10 +435,11 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            width: 100%;
             gap: 10px;
         }
         .history-item .question-text {
-            font-weight: 500;
+            font-weight: 700;          /* 加粗 */
             color: #333;
             font-size: 15px;
             white-space: nowrap;
@@ -439,7 +453,20 @@
             font-size: 12px;
             white-space: nowrap;
             flex-shrink: 0;
+            margin-left: 8px;
         }
+        /* 新增预览行 */
+        .history-item .preview-row {
+            font-weight: 400;          /* 不加粗 */
+            font-size: 13px;
+            color: #999;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+            padding-left: 0;
+        }
+
         .no-history {
             color: #ccc;
             text-align: center;
@@ -454,7 +481,7 @@
             display: flex;
             align-items: center;
             justify-content: flex-start;
-            min-height: 0px;
+            min-height: 24px;
             flex-shrink: 0;
         }
         #settings-btn {
@@ -467,7 +494,7 @@
             align-items: center;
             justify-content: center;
             outline: none;
-            margin-top: 24px;
+            margin-top: 0px;   /* 已上移 */
         }
         #settings-btn:active {
             transform: scale(0.85);
@@ -490,7 +517,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.5);
             z-index: 2000;
             justify-content: center;
             align-items: center;
@@ -504,7 +531,7 @@
             padding: 30px 28px;
             max-width: 420px;
             width: 90%;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             max-height: 80vh;
             overflow-y: auto;
             position: relative;
@@ -671,7 +698,7 @@
             position: fixed;
             background: white;
             border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
             padding: 8px 0;
             min-width: 140px;
             z-index: 2000;
@@ -710,8 +737,12 @@
 
         /* ===== 响应式 ===== */
         @media (max-width: 480px) {
-            .main-content { padding: 15px 12px 6px; }
-            #chat-box { padding: 10px 12px 0px 12px; }
+            .main-content {
+                padding: 15px 12px 6px;
+            }
+            #chat-box {
+                padding: 10px 12px 0px 12px;
+            }
             #menu-btn,
             #new-chat-btn {
                 top: 22px;
@@ -728,16 +759,22 @@
                 font-size: 34px;
                 font-weight: 400;
             }
-            .search-container input { font-size: 14px; padding: 8px 14px; }
-            .search-container button { font-size: 14px; padding: 8px 14px; }
+            .search-container input {
+                font-size: 14px;
+                padding: 8px 14px;
+            }
+            .search-container button {
+                font-size: 14px;
+                padding: 8px 14px;
+            }
             #settings-btn svg {
                 width: 28px;
                 height: 28px;
-                margin-top: 24px;
+                margin-top: 0px;
             }
             .sidebar-footer {
                 padding: 2px 0 0 0;
-                min-height: 0px;
+                min-height: 20px;
             }
             .settings-card {
                 padding: 24px 20px;
@@ -767,11 +804,18 @@
                 font-size: 14px;
                 padding: 4px 12px;
             }
+            .history-item {
+                padding: 8px 10px;
+                min-height: 52px;
+            }
             .history-item .question-text {
                 font-size: 14px;
             }
             .history-item .time {
                 font-size: 11px;
+            }
+            .history-item .preview-row {
+                font-size: 12px;
             }
             #user-input {
                 height: 36px;
@@ -786,8 +830,8 @@
                 font-size: 15px;
             }
             .deep-think-toggle {
-                font-size: 16px;
-                padding: 4px 18px;
+                font-size: 12px;
+                padding: 2px 10px;
             }
             .edit-indicator {
                 font-size: 11px;
@@ -796,7 +840,7 @@
                 padding: 0 6px;
             }
             .input-area {
-                margin-top: 120px;
+                margin-top: 12px;
                 gap: 4px;
             }
             .status {
@@ -827,11 +871,9 @@
         <h1>FENG'S DS</h1>
         <div id="chat-box"></div>
         <div class="input-area">
-            <!-- 第一行：深度思考按钮 -->
             <div class="input-controls">
                 <button class="deep-think-toggle" id="deep-think-toggle">深度思考</button>
             </div>
-            <!-- 第二行：输入框 + 发送键 -->
             <div class="input-row">
                 <textarea id="user-input" placeholder="输入你的问题..."></textarea>
                 <span class="edit-indicator" id="edit-indicator">✎ 编辑中</span>
@@ -966,7 +1008,6 @@
         let searchKeyword = '';
         let deepThinkingEnabled = false;
 
-        // 编辑模式（在发送框中编辑）
         let editingUserIndex = -1;
         let editingDraft = '';
         let originalText = '';
@@ -1023,6 +1064,7 @@
             currentSessionId = sessionId;
             renderMessages();
             userInput.value = '';
+            autoResize(userInput);
             statusMsg.textContent = '';
             closeSidebar();
             return true;
@@ -1110,7 +1152,7 @@
         }
 
         // ============================================================
-        // 5. 编辑模式管理（基于发送框）
+        // 5. 编辑模式管理
         // ============================================================
         function enterEditMode(index) {
             if (editingUserIndex >= 0) {
@@ -1242,9 +1284,29 @@
             }
         }
 
+        // ★★★★★ 修正后的 autoResize：严格判断是否超过一行 ★★★★★
         function autoResize(textarea) {
-            textarea.style.height = 'auto';
-            textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
+            const computed = window.getComputedStyle(textarea);
+            const minHeight = parseFloat(computed.minHeight) || 40;
+            const maxHeight = parseFloat(computed.maxHeight) || 150;
+
+            // 先强制重置为 minHeight
+            textarea.style.height = minHeight + 'px';
+
+            // 如果内容为空或只有空白，直接保持 minHeight
+            if (!textarea.value || textarea.value.trim() === '') {
+                return;
+            }
+
+            // 重新获取 scrollHeight（此时高度为 minHeight）
+            const scrollHeight = textarea.scrollHeight;
+
+            // 只有当 scrollHeight 明显大于 minHeight（加2px容差）时才拉高
+            if (scrollHeight > minHeight + 2) {
+                const target = Math.min(scrollHeight, maxHeight);
+                textarea.style.height = target + 'px';
+            }
+            // 否则保持 minHeight（已设置）
         }
 
         // ============================================================
@@ -1354,6 +1416,7 @@
         function getApiKey() {
             return localStorage.getItem(STORAGE_KEYS.apiKey) || '';
         }
+
         function getModel() {
             return localStorage.getItem(STORAGE_KEYS.model) || 'deepseek-v4-flash';
         }
@@ -1466,6 +1529,7 @@
             if (editingUserIndex >= 0) exitEditMode(true);
             renderMessages();
             userInput.value = '';
+            autoResize(userInput);
             statusMsg.textContent = '';
         }
 
@@ -1609,7 +1673,7 @@
         }
 
         // ============================================================
-        // 9. 事件绑定（移动端优化 - 使用 pointerdown）
+        // 9. 事件绑定
         // ============================================================
         chatBox.addEventListener('pointerdown', function(e) {
             if (e.target.tagName === 'TEXTAREA') return;
@@ -1648,7 +1712,7 @@
                     saveDraftAndExit();
                 } else if (isInChat) {
                     if (wrapper && wrapper.querySelector('.user-message')) {
-                        // 点击用户消息由 chatBox 事件处理，这里不重复
+                        // 点击用户消息由 chatBox 事件处理
                     } else {
                         saveDraftAndExit();
                     }
@@ -1731,7 +1795,7 @@
         }
 
         // ============================================================
-        // 11. 侧滑栏开关（不弹出键盘）
+        // 11. 侧滑栏开关
         // ============================================================
         function openSidebar() {
             sidebar.classList.add('open');
@@ -1744,6 +1808,7 @@
                 renderHistory();
             }, 400);
         }
+
         function closeSidebar() {
             sidebar.classList.remove('open');
             overlay.classList.remove('active');
@@ -1830,7 +1895,7 @@
         searchBtn.addEventListener('click', performSearch);
 
         // ============================================================
-        // 14. 历史记录渲染
+        // 14. 历史记录渲染（修改了 buildSessionItemHtml）
         // ============================================================
         function renderHistory() {
             const sessions = getSessions();
@@ -1861,8 +1926,8 @@
             unpinned.forEach(entry => {
                 const date = new Date(entry.timestamp);
                 const dateStr = date.getFullYear() + '-' +
-                                String(date.getMonth() + 1).padStart(2, '0') + '-' +
-                                String(date.getDate()).padStart(2, '0');
+                    String(date.getMonth() + 1).padStart(2, '0') + '-' +
+                    String(date.getDate()).padStart(2, '0');
                 if (!groups[dateStr]) groups[dateStr] = [];
                 groups[dateStr].push(entry);
             });
@@ -1908,6 +1973,7 @@
             });
         }
 
+        // ===== 修改后的 buildSessionItemHtml：增加预览行 =====
         function buildSessionItemHtml(session) {
             const timeStr = new Date(session.timestamp).toLocaleTimeString('zh-CN', {
                 hour: '2-digit',
@@ -1915,14 +1981,33 @@
                 hour12: false
             });
             const pinnedClass = session.pinned ? 'pinned' : '';
+
+            // 提取预览文本：取第一条用户消息之后的 AI 回复（非欢迎语）
+            let previewText = '（暂无内容）';
+            let foundUser = false;
+            for (let i = 0; i < session.messages.length; i++) {
+                const msg = session.messages[i];
+                if (msg.type === 'user') {
+                    foundUser = true;
+                } else if (foundUser && msg.type === 'ai' && msg.text !== WELCOME_TEXT) {
+                    previewText = msg.text;
+                    break;
+                }
+            }
+            // 截断预览，最多 50 个字符
+            if (previewText.length > 50) {
+                previewText = previewText.substring(0, 50) + '...';
+            }
+
             return `
-                <div class="history-item ${pinnedClass}" data-id="${session.id}" data-longpress="false">
-                    <div class="question-row">
-                        <span class="question-text">${escapeHtml(session.title)}</span>
-                        <span class="time">${timeStr}</span>
+                    <div class="history-item ${pinnedClass}" data-id="${session.id}" data-longpress="false">
+                        <div class="question-row">
+                            <span class="question-text">${escapeHtml(session.title)}</span>
+                            <span class="time">${timeStr}</span>
+                        </div>
+                        <div class="preview-row">${escapeHtml(previewText)}</div>
                     </div>
-                </div>
-            `;
+                `;
         }
 
         function escapeHtml(text) {
@@ -1931,7 +2016,6 @@
             return div.innerHTML;
         }
 
-        // --- 长按处理 ---
         let longPressTimer = null;
         let touchStartX = 0,
             touchStartY = 0;
@@ -1973,7 +2057,6 @@
             this.dataset.longpress = 'true';
         }
 
-        // --- 上下文菜单 ---
         let activeItemId = null;
 
         function showContextMenu(x, y, id) {
@@ -2069,6 +2152,8 @@
             } else {
                 resetChat();
             }
+            // 确保输入框高度正确
+            autoResize(userInput);
             renderHistory();
             userInput.focus();
         }
