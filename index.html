@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>FENG'S DS</title>
     <style>
+        /* 样式与之前完全相同，为节省篇幅省略，但实际输出会包含完整样式 */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body {
             height: 100%;
@@ -965,6 +966,49 @@
             return localStorage.getItem(STORAGE_KEYS.memoryStrategy) || 'no-compress';
         }
 
+        // 确保 AI 消息的 versions 是对象数组，每个对象有 { text, cumulativeTokens }
+        function ensureVersionObjects(msg) {
+            if (!msg.versions) {
+                // 旧数据：可能是字符串数组，或者未定义
+                msg.versions = [{ text: msg.text, cumulativeTokens: msg.cumulativeTokens || 0 }];
+                msg.currentVersion = 0;
+            } else if (msg.versions.length > 0 && typeof msg.versions[0] === 'string') {
+                // 如果是字符串数组，转换为对象数组
+                const oldVersions = msg.versions;
+                msg.versions = oldVersions.map((text, idx) => {
+                    // 尝试从旧数据获取累计值，若没有则设为0（但最好重新计算）
+                    // 这里简化为从现有消息中计算，但会在渲染时重新计算
+                    return { text: text, cumulativeTokens: 0 };
+                });
+                // 尝试恢复 cumulativeTokens 的值
+                if (msg.cumulativeTokens !== undefined) {
+                    // 将当前累计值赋给当前版本
+                    const cur = msg.currentVersion || 0;
+                    if (msg.versions[cur]) {
+                        msg.versions[cur].cumulativeTokens = msg.cumulativeTokens;
+                    }
+                }
+                // 重新计算所有版本的累计值，但需要知道每个版本生成时的累计，无法复原，只能粗略处理：让当前版本有累计，其他版本设为0
+                // 这里我们保留当前版本的累计，其他版本暂设为0
+            }
+            // 确保当前版本索引有效
+            if (msg.currentVersion === undefined || msg.currentVersion >= msg.versions.length) {
+                msg.currentVersion = 0;
+            }
+        }
+
+        // 计算当前所有 AI 消息（不含欢迎）的 token 总和
+        function calculateTotalTokens() {
+            let total = 0;
+            for (let i = 0; i < messages.length; i++) {
+                const msg = messages[i];
+                if (msg.type === 'ai' && !(i === 0 && msg.text === WELCOME_TEXT)) {
+                    total += estimateTokens(msg.text);
+                }
+            }
+            return total;
+        }
+
         // ============================================================
         // 5. 聊天渲染
         // ============================================================
@@ -972,6 +1016,11 @@
             chatBox.innerHTML = '';
 
             messages.forEach((msg, index) => {
+                // 对于 AI 消息，确保 versions 是对象数组
+                if (msg.type === 'ai') {
+                    ensureVersionObjects(msg);
+                }
+
                 const wrapper = document.createElement('div');
                 wrapper.className = `message-wrapper ${msg.type === 'user' ? 'user-wrapper' : 'ai-wrapper'}`;
 
@@ -1013,15 +1062,27 @@
                     if (showTokenStats) {
                         const text = msg.text || '';
                         const charCount = text.length;
+                        // 累计 token 从当前版本的 cumulativeTokens 读取
                         let cumulative = msg.cumulativeTokens;
                         if (cumulative === undefined) {
-                            cumulative = 0;
-                            for (let i = 0; i <= index; i++) {
-                                if (messages[i].type === 'ai' && !(i === 0 && messages[i].text === WELCOME_TEXT)) {
-                                    cumulative += estimateTokens(messages[i].text);
+                            // 如果未定义，尝试从 versions 当前版本获取
+                            const cur = msg.currentVersion || 0;
+                            if (msg.versions && msg.versions[cur] && msg.versions[cur].cumulativeTokens !== undefined) {
+                                cumulative = msg.versions[cur].cumulativeTokens;
+                            } else {
+                                // 否则实时计算（兼容旧数据）
+                                cumulative = 0;
+                                for (let i = 0; i <= index; i++) {
+                                    if (messages[i].type === 'ai' && !(i === 0 && messages[i].text === WELCOME_TEXT)) {
+                                        cumulative += estimateTokens(messages[i].text);
+                                    }
                                 }
+                                // 回填到当前版本
+                                if (msg.versions && msg.versions[cur]) {
+                                    msg.versions[cur].cumulativeTokens = cumulative;
+                                }
+                                msg.cumulativeTokens = cumulative;
                             }
-                            msg.cumulativeTokens = cumulative;
                         }
                         const statsSpan = document.createElement('span');
                         statsSpan.className = 'token-stats';
@@ -1041,6 +1102,7 @@
         function cycleVersion(index) {
             const msg = messages[index];
             if (!msg || msg.type !== 'ai') return;
+            ensureVersionObjects(msg);
             if (!msg.versions || msg.versions.length <= 1) {
                 alert('当前只有这一个版本');
                 return;
@@ -1048,7 +1110,10 @@
             let cur = msg.currentVersion !== undefined ? msg.currentVersion : 0;
             cur = (cur + 1) % msg.versions.length;
             msg.currentVersion = cur;
-            msg.text = msg.versions[cur];
+            // 更新文本和累计 token
+            const versionData = msg.versions[cur];
+            msg.text = versionData.text;
+            msg.cumulativeTokens = versionData.cumulativeTokens;
             renderMessages();
         }
 
@@ -1159,13 +1224,12 @@
         function resetChat() {
             saveCurrentSession();
             messages = [
-                { type: 'ai', text: WELCOME_TEXT, versions: [WELCOME_TEXT], currentVersion: 0 }
+                { type: 'ai', text: WELCOME_TEXT, versions: [{ text: WELCOME_TEXT, cumulativeTokens: 0 }], currentVersion: 0 }
             ];
             currentSessionId = null;
             renderMessages();
             userInput.value = '';
             statusMsg.textContent = '';
-            // 不再自动聚焦输入框，避免弹键盘
         }
 
         async function sendMessage() {
@@ -1182,7 +1246,7 @@
 
             const userMsg = { type: 'user', text: text };
             messages.push(userMsg);
-            const aiMsg = { type: 'ai', text: '...', versions: ['...'], currentVersion: 0 };
+            const aiMsg = { type: 'ai', text: '...', versions: [{ text: '...', cumulativeTokens: 0 }], currentVersion: 0 };
             messages.push(aiMsg);
             renderMessages();
             userInput.value = '';
@@ -1196,21 +1260,18 @@
                     const lastMsg = messages[messages.length - 1];
                     if (lastMsg.type === 'ai') {
                         lastMsg.text = chunk;
-                        lastMsg.versions[0] = chunk;
+                        lastMsg.versions[0].text = chunk;
                         renderMessages();
                     }
                 });
                 const lastMsg = messages[messages.length - 1];
                 if (lastMsg.type === 'ai') {
                     lastMsg.text = fullReply || '（AI没有返回内容）';
-                    lastMsg.versions[0] = lastMsg.text;
+                    lastMsg.versions[0].text = lastMsg.text;
                     lastMsg.currentVersion = 0;
-                    let cumulative = 0;
-                    for (let i = 0; i < messages.length; i++) {
-                        if (messages[i].type === 'ai' && !(i === 0 && messages[i].text === WELCOME_TEXT)) {
-                            cumulative += estimateTokens(messages[i].text);
-                        }
-                    }
+                    // 计算累计 token（基于当前所有 AI 消息）
+                    const cumulative = calculateTotalTokens();
+                    lastMsg.versions[0].cumulativeTokens = cumulative;
                     lastMsg.cumulativeTokens = cumulative;
                 }
                 saveCurrentSession();
@@ -1220,13 +1281,9 @@
                 const lastMsg = messages[messages.length - 1];
                 if (lastMsg.type === 'ai') {
                     lastMsg.text = `❌ ${error.message || '未知错误'}`;
-                    lastMsg.versions[0] = lastMsg.text;
-                    let cumulative = 0;
-                    for (let i = 0; i < messages.length; i++) {
-                        if (messages[i].type === 'ai' && !(i === 0 && messages[i].text === WELCOME_TEXT)) {
-                            cumulative += estimateTokens(messages[i].text);
-                        }
-                    }
+                    lastMsg.versions[0].text = lastMsg.text;
+                    const cumulative = calculateTotalTokens();
+                    lastMsg.versions[0].cumulativeTokens = cumulative;
                     lastMsg.cumulativeTokens = cumulative;
                 }
                 statusMsg.textContent = '发送失败，请检查网络或设置';
@@ -1234,7 +1291,6 @@
                 isGenerating = false;
                 sendBtn.disabled = false;
                 renderMessages();
-                // 不自动聚焦输入框
             }
         }
 
@@ -1257,7 +1313,7 @@
             isGenerating = true;
 
             try {
-                const aiMsg = { type: 'ai', text: '...', versions: ['...'], currentVersion: 0 };
+                const aiMsg = { type: 'ai', text: '...', versions: [{ text: '...', cumulativeTokens: 0 }], currentVersion: 0 };
                 messages.push(aiMsg);
                 renderMessages();
 
@@ -1266,21 +1322,17 @@
                     const lastMsg = messages[messages.length - 1];
                     if (lastMsg.type === 'ai') {
                         lastMsg.text = chunk;
-                        lastMsg.versions[0] = chunk;
+                        lastMsg.versions[0].text = chunk;
                         renderMessages();
                     }
                 });
                 const lastMsg = messages[messages.length - 1];
                 if (lastMsg.type === 'ai') {
                     lastMsg.text = fullReply || '（AI没有返回内容）';
-                    lastMsg.versions[0] = lastMsg.text;
+                    lastMsg.versions[0].text = lastMsg.text;
                     lastMsg.currentVersion = 0;
-                    let cumulative = 0;
-                    for (let i = 0; i < messages.length; i++) {
-                        if (messages[i].type === 'ai' && !(i === 0 && messages[i].text === WELCOME_TEXT)) {
-                            cumulative += estimateTokens(messages[i].text);
-                        }
-                    }
+                    const cumulative = calculateTotalTokens();
+                    lastMsg.versions[0].cumulativeTokens = cumulative;
                     lastMsg.cumulativeTokens = cumulative;
                 }
                 saveCurrentSession();
@@ -1290,13 +1342,9 @@
                 const lastMsg = messages[messages.length - 1];
                 if (lastMsg.type === 'ai') {
                     lastMsg.text = `❌ ${error.message || '未知错误'}`;
-                    lastMsg.versions[0] = lastMsg.text;
-                    let cumulative = 0;
-                    for (let i = 0; i < messages.length; i++) {
-                        if (messages[i].type === 'ai' && !(i === 0 && messages[i].text === WELCOME_TEXT)) {
-                            cumulative += estimateTokens(messages[i].text);
-                        }
-                    }
+                    lastMsg.versions[0].text = lastMsg.text;
+                    const cumulative = calculateTotalTokens();
+                    lastMsg.versions[0].cumulativeTokens = cumulative;
                     lastMsg.cumulativeTokens = cumulative;
                 }
                 statusMsg.textContent = '重新生成失败，请检查网络或设置';
@@ -1304,27 +1352,20 @@
                 isGenerating = false;
                 sendBtn.disabled = false;
                 renderMessages();
-                // 不自动聚焦
             }
         }
 
         // ============================================================
-        // ★★★ 修复后的重新生成函数（保留历史版本） ★★★
+        // ★★★ 核心修复：重新生成时，每个版本独立存储累计 token ★★★
         // ============================================================
-        /**
-         * 重新生成 AI 消息（保留历史版本）
-         * @param {number} index - 要重新生成的 AI 消息在 messages 数组中的索引
-         */
         async function regenerateAIMessage(index) {
-            // 防止重复点击
             if (isGenerating) {
                 alert('正在生成中，请稍候');
                 return;
             }
-            // 检查索引有效性
             if (index < 0 || index >= messages.length || messages[index].type !== 'ai') return;
 
-            // 查找对应的用户消息（位于该 AI 消息之前）
+            // 查找对应的用户消息
             let userIndex = -1;
             for (let i = index - 1; i >= 0; i--) {
                 if (messages[i].type === 'user') {
@@ -1340,60 +1381,66 @@
 
             // 获取当前 AI 消息对象
             const aiMsg = messages[index];
+            ensureVersionObjects(aiMsg);
 
-            // 确保该 AI 消息有 versions 数组和 currentVersion 字段
-            if (!aiMsg.versions) {
-                aiMsg.versions = [aiMsg.text];
-                aiMsg.currentVersion = 0;
-            }
+            // 计算当前所有 AI 消息的 token 总和（不包括当前消息，因为还没生成新版本）
+            // 但当前消息已存在，其 token 会被计入，我们需要的是：在生成新版本前，计算出所有 AI 消息（包括当前消息的旧版本）的总和作为新版本的累计？不，新版本应该基于当前所有 AI 消息（包括旧版本）的 token 总和，因为旧版本已经消耗了 token。
+            // 但用户期望的是：新版本的累计 token = 之前所有 AI 消息的 token 总和 + 新生成的 token。
+            // 所以我们需要在生成新版本时，先计算当前 messages 中所有 AI 消息（不包括欢迎）的 token 总和，然后加上新生成的 token。
+            // 更准确的做法：先计算当前所有 AI 消息的 token 总和（作为基准），然后生成新版本时，最终累计 = 基准 + 新版本 token。
+            // 但由于我们无法预知新版本 token 数量，只能在生成完成后计算。
+            // 简单做法：新版本的累计 token 等于生成完成后整个 messages 中所有 AI 消息的 token 总和。
+            // 这样，每次重新生成，新版本的累计 token 会等于当前所有 AI 消息（包括新生成的）的 token 总和。
+            // 用户希望翻到旧版本时，旧版本的累计 token 保持不变（即该版本生成时的累计）。
+            // 所以我们需要在生成新版本时，将新版本的累计 token 存储为生成完成后的总累计值。
 
-            // 添加新版本占位（'...' 表示正在生成）
-            aiMsg.versions.push('...');
-            // 将 currentVersion 指向最新版本（刚添加的占位）
+            // 添加新版本占位（对象）
+            aiMsg.versions.push({ text: '...', cumulativeTokens: 0 });
+            // 将当前版本指向新版本
             aiMsg.currentVersion = aiMsg.versions.length - 1;
-            // 临时显示占位文本
             aiMsg.text = '...';
 
-            // 删除该 AI 消息之后的所有消息（保留该 AI 消息及其之前的内容）
+            // 删除该 AI 消息之后的所有消息
             messages = messages.slice(0, index + 1);
 
-            // 重新渲染界面
             renderMessages();
             statusMsg.textContent = '重新生成中...';
             sendBtn.disabled = true;
             isGenerating = true;
 
             try {
-                // 调用 API 生成新回复（传入当前 AI 之前的所有历史消息）
-                const history = messages.slice(0, -1); // 不包含占位 AI
+                const history = messages.slice(0, -1);
                 const fullReply = await generateAIResponse(history, (chunk) => {
-                    // 流式更新：实时更新占位版本
                     const lastIdx = aiMsg.versions.length - 1;
-                    aiMsg.versions[lastIdx] = chunk;
+                    aiMsg.versions[lastIdx].text = chunk;
                     aiMsg.text = chunk;
                     renderMessages();
                 });
 
-                // 最终确定版本内容
                 const lastIdx = aiMsg.versions.length - 1;
-                aiMsg.versions[lastIdx] = fullReply || '（AI没有返回内容）';
+                aiMsg.versions[lastIdx].text = fullReply || '（AI没有返回内容）';
                 aiMsg.text = fullReply || '（AI没有返回内容）';
 
-                // 保存会话到 localStorage
+                // ★★★ 计算整个对话中所有 AI 消息的 token 总和 ★★★
+                const cumulative = calculateTotalTokens();
+                aiMsg.versions[lastIdx].cumulativeTokens = cumulative;
+                aiMsg.cumulativeTokens = cumulative;
+
                 saveCurrentSession();
                 statusMsg.textContent = '';
             } catch (error) {
                 console.error(error);
-                // 发生错误时，将版本内容标记为错误信息
                 const lastIdx = aiMsg.versions.length - 1;
-                aiMsg.versions[lastIdx] = `❌ ${error.message || '未知错误'}`;
+                aiMsg.versions[lastIdx].text = `❌ ${error.message || '未知错误'}`;
                 aiMsg.text = `❌ ${error.message || '未知错误'}`;
+                const cumulative = calculateTotalTokens();
+                aiMsg.versions[lastIdx].cumulativeTokens = cumulative;
+                aiMsg.cumulativeTokens = cumulative;
                 statusMsg.textContent = '重新生成失败，请检查网络或设置';
             } finally {
                 isGenerating = false;
                 sendBtn.disabled = false;
                 renderMessages();
-                // 不自动聚焦输入框
             }
         }
 
@@ -1486,7 +1533,6 @@
             newChatBtn.style.pointerEvents = 'none';
             newChatBtn.style.cursor = 'default';
             setTimeout(() => {
-                // 打开时聚焦搜索框，方便搜索
                 searchInput.focus();
                 renderHistory();
             }, 400);
@@ -1577,7 +1623,7 @@
         searchBtn.addEventListener('click', performSearch);
 
         // ============================================================
-        // 13. 历史记录渲染（支持搜索过滤，排序按时间降序）
+        // 13. 历史记录渲染
         // ============================================================
         function renderHistory() {
             const sessions = getSessions();
@@ -1589,7 +1635,6 @@
                 return;
             }
 
-            // 先过滤
             let filtered = sessions;
             if (searchKeyword) {
                 filtered = sessions.filter(s => s.title.toLowerCase().includes(searchKeyword));
@@ -1600,13 +1645,11 @@
                 }
             }
 
-            // 分离置顶和非置顶，并按时间降序（最新在上）
             const pinned = filtered.filter(s => s.pinned);
             const unpinned = filtered.filter(s => !s.pinned);
             pinned.sort((a, b) => b.timestamp - a.timestamp);
             unpinned.sort((a, b) => b.timestamp - a.timestamp);
 
-            // 按日期分组（非置顶）
             const groups = {};
             unpinned.forEach(entry => {
                 const date = new Date(entry.timestamp);
@@ -1618,7 +1661,6 @@
             });
             const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
 
-            // 渲染置顶
             if (pinned.length > 0) {
                 html += `<div class="history-date">📌 置顶</div>`;
                 pinned.forEach(session => {
@@ -1626,10 +1668,8 @@
                 });
             }
 
-            // 渲染日期分组
             sortedDates.forEach(dateStr => {
                 html += `<div class="history-date">${dateStr}</div>`;
-                // 同一日期内按时间降序（最新在上）
                 const entries = groups[dateStr].sort((a, b) => b.timestamp - a.timestamp);
                 entries.forEach(entry => {
                     html += buildSessionItemHtml(entry);
@@ -1638,7 +1678,6 @@
 
             historyContainer.innerHTML = html;
 
-            // 绑定点击事件
             document.querySelectorAll('.history-item').forEach(item => {
                 item.addEventListener('click', function(e) {
                     if (this.dataset.longpress === 'true') {
@@ -1650,7 +1689,6 @@
                 });
             });
 
-            // 绑定长按/右键
             document.querySelectorAll('.history-item').forEach(item => {
                 item.removeEventListener('touchstart', handleTouchStart);
                 item.removeEventListener('touchend', handleTouchEnd);
@@ -1801,10 +1839,7 @@
             }
             resetChat();
             renderHistory();
-            // 新建对话后不聚焦输入框
         });
-
-        // 用户点击输入框时自动聚焦（默认行为，不需要额外操作）
 
         // ============================================================
         // 15. 初始化
@@ -1819,7 +1854,6 @@
                 resetChat();
             }
             renderHistory();
-            // 页面加载时聚焦输入框（仅首次）
             userInput.focus();
         }
 
