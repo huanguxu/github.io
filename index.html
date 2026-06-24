@@ -22,7 +22,7 @@
             height: 100vh;
             max-width: 600px;
             margin: 0 auto;
-            padding: 20px 16px 12px;
+            padding: 20px 16px 8px; /* 减小底部内边距 */
             background: white;
             box-shadow: 0 0 20px rgba(0,0,0,0.05);
             position: relative;
@@ -137,18 +137,18 @@
             cursor: default;
         }
 
-        /* ===== 输入区域 ===== */
+        /* ===== 输入区域（发送框与发送键底部对齐） ===== */
         .input-area {
             display: flex;
             flex-direction: column;
-            gap: 8px;
-            margin-top: 12px;
+            gap: 6px; /* 减小间距 */
+            margin-top: 8px; /* 减小上边距 */
             flex-shrink: 0;
         }
         .input-row {
             display: flex;
             gap: 10px;
-            align-items: flex-end;  /* 关键：发送键底部与输入框底部对齐 */
+            align-items: flex-end; /* 底部对齐 */
             position: relative;
         }
         #user-input {
@@ -168,6 +168,7 @@
             transition: border-color 0.2s;
             overflow-y: auto;
             box-sizing: border-box;
+            align-self: flex-end; /* 底部对齐 */
         }
         #user-input.editing-mode {
             border-color: #f8bbd0;
@@ -200,9 +201,10 @@
             cursor: pointer;
             transition: background 0.2s, transform 0.1s;
             white-space: nowrap;
-            height: 40px;            /* 高度固定不变 */
+            height: 40px;            /* 固定高度 */
+            align-self: flex-end;    /* 底部对齐 */
             box-sizing: border-box;
-            flex-shrink: 0;          /* 防止被压缩 */
+            flex-shrink: 0;
         }
         #send-btn:active {
             background: #f48fb1;
@@ -240,8 +242,8 @@
             text-align: center;
             color: #888;
             font-style: italic;
-            margin-top: 4px;
-            min-height: 20px;
+            margin-top: 2px; /* 减小间距 */
+            min-height: 18px;
             font-size: 14px;
             flex-shrink: 0;
         }
@@ -315,7 +317,7 @@
             transform: translateX(-100%);
             transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
             overflow-y: auto;
-            padding: 30px 20px;
+            padding: 30px 20px 20px; /* 减小底部内边距 */
             display: flex;
             flex-direction: column;
             align-items: stretch;
@@ -364,7 +366,7 @@
         .history-section {
             flex: 1;
             overflow-y: auto;
-            padding: 10px 0 20px 0;
+            padding: 10px 0 10px 0; /* 减小底部内边距 */
             display: flex;
             flex-direction: column;
         }
@@ -372,8 +374,8 @@
             font-size: 20px;
             font-weight: 700;
             color: #333;
-            margin-bottom: 16px;
-            padding-bottom: 8px;
+            margin-bottom: 12px;
+            padding-bottom: 6px;
             border-bottom: 2px solid #f0f0f0;
             letter-spacing: 0.5px;
             flex-shrink: 0;
@@ -383,9 +385,9 @@
             font-weight: 700;
             color: #5d4037;
             background: #f8bbd0;
-            padding: 6px 14px;
+            padding: 4px 12px;
             border-radius: 20px;
-            margin: 12px 0 10px 0;
+            margin: 10px 0 8px 0;
             display: inline-block;
             align-self: flex-start;
             letter-spacing: 0.3px;
@@ -393,8 +395,8 @@
         .history-item {
             background: #f9f9f9;
             border-radius: 10px;
-            padding: 10px 12px;
-            margin-bottom: 8px;
+            padding: 8px 12px;
+            margin-bottom: 6px;
             cursor: pointer;
             transition: background 0.2s;
             border-left: 3px solid #f8bbd0;
@@ -434,18 +436,18 @@
         .no-history {
             color: #ccc;
             text-align: center;
-            margin-top: 40px;
+            margin-top: 30px;
             font-size: 15px;
         }
 
         .sidebar-footer {
             margin-top: auto;
             border-top: 1px solid #f0f0f0;
-            padding: 16px 0;
+            padding: 12px 0; /* 减小内边距 */
             display: flex;
             align-items: center;
             justify-content: flex-start;
-            min-height: 60px;
+            min-height: 50px;
             flex-shrink: 0;
         }
         #settings-btn {
@@ -700,7 +702,7 @@
 
         /* ===== 响应式 ===== */
         @media (max-width: 480px) {
-            .main-content { padding: 15px 12px 8px; }
+            .main-content { padding: 15px 12px 6px; }
             #chat-box { padding: 10px 12px; }
             #menu-btn,
             #new-chat-btn {
@@ -725,8 +727,8 @@
                 height: 28px;
             }
             .sidebar-footer {
-                padding: 12px 0;
-                min-height: 48px;
+                padding: 10px 0;
+                min-height: 44px;
             }
             .settings-card {
                 padding: 24px 20px;
@@ -783,6 +785,29 @@
                 top: -8px;
                 left: 14px;
                 padding: 0 6px;
+            }
+            .input-area {
+                margin-top: 6px;
+                gap: 4px;
+            }
+            .status {
+                margin-top: 1px;
+                min-height: 16px;
+                font-size: 13px;
+            }
+            .sidebar {
+                padding: 20px 16px 16px;
+            }
+            .history-section {
+                padding: 6px 0 6px 0;
+            }
+            .history-main-title {
+                margin-bottom: 8px;
+                padding-bottom: 4px;
+            }
+            .history-item {
+                padding: 6px 10px;
+                margin-bottom: 4px;
             }
         }
     </style>
@@ -1695,7 +1720,7 @@
         }
 
         // ============================================================
-        // 11. 侧滑栏开关（已移除自动聚焦搜索框）
+        // 11. 侧滑栏开关（不弹出键盘）
         // ============================================================
         function openSidebar() {
             sidebar.classList.add('open');
