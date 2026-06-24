@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>FENG'S DS</title>
     <style>
-        /* ===== 全局样式 ===== */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body {
             height: 100%;
@@ -319,7 +318,6 @@
             letter-spacing: 0.5px;
             flex-shrink: 0;
         }
-        /* 日期标题（独立小标题） */
         .history-date {
             font-size: 16px;
             font-weight: 700;
@@ -743,7 +741,7 @@
     <!-- 侧滑栏 -->
     <div class="sidebar" id="sidebar">
         <div class="search-container">
-            <input type="text" id="search-input" />
+            <input type="text" id="search-input" placeholder="搜索历史记录..." />
             <button id="search-btn">搜索</button>
         </div>
         <div class="history-section" id="history-container">
@@ -776,6 +774,7 @@
                     <option value="deepseek-v4-flash">deepseek-v4-flash</option>
                     <option value="deepseek-v4-pro">deepseek-v4-pro</option>
                 </select>
+                <p style="font-size:12px; color:#999; margin-top:4px;">若平台无法查看数据，请检查 API Key 权限或联系 DeepSeek 支持。</p>
             </div>
             <div class="settings-item">
                 <label>显示设置</label>
@@ -836,6 +835,8 @@
         const historyContainer = document.getElementById('history-container');
         const contextMenu = document.getElementById('context-menu');
         const settingsBtn = document.getElementById('settings-btn');
+        const searchInput = document.getElementById('search-input');
+        const searchBtn = document.getElementById('search-btn');
 
         const settingsOverlay = document.getElementById('settings-overlay');
         const apiKeyInput = document.getElementById('api-key-input');
@@ -857,6 +858,7 @@
         const WELCOME_TEXT = '甜心，祝你今天过得愉快！';
         let showTokenStats = true;
         let currentSessionId = null;
+        let searchKeyword = '';
 
         // ============================================================
         // 3. 数据管理（会话存储）
@@ -909,7 +911,6 @@
             currentSessionId = sessionId;
             renderMessages();
             userInput.value = '';
-            userInput.focus();
             statusMsg.textContent = '';
             closeSidebar();
             return true;
@@ -1036,6 +1037,7 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
+        // 翻页功能（版本切换）
         function cycleVersion(index) {
             const msg = messages[index];
             if (!msg || msg.type !== 'ai') return;
@@ -1162,8 +1164,8 @@
             currentSessionId = null;
             renderMessages();
             userInput.value = '';
-            userInput.focus();
             statusMsg.textContent = '';
+            // 不再自动聚焦输入框，避免弹键盘
         }
 
         async function sendMessage() {
@@ -1184,7 +1186,6 @@
             messages.push(aiMsg);
             renderMessages();
             userInput.value = '';
-            userInput.focus();
             statusMsg.textContent = 'DeepSeek 正在思考...';
             sendBtn.disabled = true;
             isGenerating = true;
@@ -1233,8 +1234,7 @@
                 isGenerating = false;
                 sendBtn.disabled = false;
                 renderMessages();
-                userInput.focus();
-                renderHistory();
+                // 不自动聚焦输入框
             }
         }
 
@@ -1304,8 +1304,7 @@
                 isGenerating = false;
                 sendBtn.disabled = false;
                 renderMessages();
-                userInput.focus();
-                renderHistory();
+                // 不自动聚焦
             }
         }
 
@@ -1380,8 +1379,7 @@
                 isGenerating = false;
                 sendBtn.disabled = false;
                 renderMessages();
-                userInput.focus();
-                renderHistory();
+                // 不自动聚焦
             }
         }
 
@@ -1473,8 +1471,11 @@
             document.body.style.overflow = 'hidden';
             newChatBtn.style.pointerEvents = 'none';
             newChatBtn.style.cursor = 'default';
-            setTimeout(() => document.getElementById('search-input')?.focus(), 400);
-            renderHistory();
+            setTimeout(() => {
+                // 打开时聚焦搜索框，方便搜索
+                searchInput.focus();
+                renderHistory();
+            }, 400);
         }
         function closeSidebar() {
             sidebar.classList.remove('open');
@@ -1551,26 +1552,18 @@
         });
 
         // ============================================================
-        // 12. 搜索功能
+        // 12. 搜索功能（实时过滤）
         // ============================================================
-        const searchInput = document.getElementById('search-input');
-        const searchBtn = document.getElementById('search-btn');
-
         function performSearch() {
-            const query = searchInput.value.trim();
-            if (query) {
-                alert(`你搜索了：“${query}”\n（此处可对接实际搜索功能）`);
-            } else {
-                alert('请输入搜索内容');
-            }
+            searchKeyword = searchInput.value.trim().toLowerCase();
+            renderHistory();
         }
+
+        searchInput.addEventListener('input', performSearch);
         searchBtn.addEventListener('click', performSearch);
-        searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') performSearch();
-        });
 
         // ============================================================
-        // 13. 历史记录渲染（日期标题已强化）
+        // 13. 历史记录渲染（支持搜索过滤，排序按时间降序）
         // ============================================================
         function renderHistory() {
             const sessions = getSessions();
@@ -1582,17 +1575,22 @@
                 return;
             }
 
-            const pinned = sessions.filter(s => s.pinned);
-            const unpinned = sessions.filter(s => !s.pinned);
+            // 先过滤
+            let filtered = sessions;
+            if (searchKeyword) {
+                filtered = sessions.filter(s => s.title.toLowerCase().includes(searchKeyword));
+                if (filtered.length === 0) {
+                    html += '<div class="no-history">没有找到匹配的记录</div>';
+                    historyContainer.innerHTML = html;
+                    return;
+                }
+            }
+
+            // 分离置顶和非置顶，并按时间降序（最新在上）
+            const pinned = filtered.filter(s => s.pinned);
+            const unpinned = filtered.filter(s => !s.pinned);
             pinned.sort((a, b) => b.timestamp - a.timestamp);
             unpinned.sort((a, b) => b.timestamp - a.timestamp);
-
-            if (pinned.length > 0) {
-                html += `<div class="history-date">📌 置顶</div>`;
-                pinned.forEach(session => {
-                    html += buildSessionItemHtml(session);
-                });
-            }
 
             // 按日期分组（非置顶）
             const groups = {};
@@ -1606,9 +1604,19 @@
             });
             const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
 
+            // 渲染置顶
+            if (pinned.length > 0) {
+                html += `<div class="history-date">📌 置顶</div>`;
+                pinned.forEach(session => {
+                    html += buildSessionItemHtml(session);
+                });
+            }
+
+            // 渲染日期分组
             sortedDates.forEach(dateStr => {
                 html += `<div class="history-date">${dateStr}</div>`;
-                const entries = groups[dateStr].sort((a, b) => a.timestamp - b.timestamp);
+                // 同一日期内按时间降序（最新在上）
+                const entries = groups[dateStr].sort((a, b) => b.timestamp - a.timestamp);
                 entries.forEach(entry => {
                     html += buildSessionItemHtml(entry);
                 });
@@ -1616,7 +1624,7 @@
 
             historyContainer.innerHTML = html;
 
-            // 绑定点击事件（加载会话）
+            // 绑定点击事件
             document.querySelectorAll('.history-item').forEach(item => {
                 item.addEventListener('click', function(e) {
                     if (this.dataset.longpress === 'true') {
@@ -1779,7 +1787,10 @@
             }
             resetChat();
             renderHistory();
+            // 新建对话后不聚焦输入框
         });
+
+        // 用户点击输入框时自动聚焦（默认行为，不需要额外操作）
 
         // ============================================================
         // 15. 初始化
@@ -1794,6 +1805,7 @@
                 resetChat();
             }
             renderHistory();
+            // 页面加载时聚焦输入框（仅首次）
             userInput.focus();
         }
 
