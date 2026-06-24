@@ -22,7 +22,7 @@
             height: 100vh;
             max-width: 600px;
             margin: 0 auto;
-            padding: 20px 16px 8px; /* 减小底部内边距 */
+            padding: 20px 16px 8px;
             background: white;
             box-shadow: 0 0 20px rgba(0,0,0,0.05);
             position: relative;
@@ -137,18 +137,47 @@
             cursor: default;
         }
 
-        /* ===== 输入区域（发送框与发送键底部对齐） ===== */
+        /* ===== 输入区域（深度思考按钮在第一行，输入框第二行） ===== */
         .input-area {
             display: flex;
             flex-direction: column;
-            gap: 6px; /* 减小间距 */
-            margin-top: 120px; /* 减小上边距 */
+            gap: 6px;
+            margin-top: 120px;
             flex-shrink: 0;
+        }
+        .input-controls {
+            display: flex;
+            justify-content: flex-start;
+            padding: 0 4px;
+        }
+        /* 深度思考按钮（椭圆形） */
+        .deep-think-toggle {
+            background: transparent;
+            border: 2px solid #f8bbd0;
+            border-radius: 50px;
+            padding: 6px 24px;
+            font-size: 18px;
+            font-weight: 500;
+            color: #888;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            display: inline-block;
+            background: transparent;
+            user-select: none;
+        }
+        .deep-think-toggle:hover {
+            background: rgba(248,187,208,0.05);
+        }
+        .deep-think-toggle.active {
+            color: #f8bbd0;
+            border-color: #f8bbd0;
+            background: rgba(248,187,208,0.1);
         }
         .input-row {
             display: flex;
             gap: 10px;
-            align-items: flex-end; /* 底部对齐 */
+            align-items: flex-end;
             position: relative;
         }
         #user-input {
@@ -168,7 +197,7 @@
             transition: border-color 0.2s;
             overflow-y: auto;
             box-sizing: border-box;
-            align-self: flex-end; /* 底部对齐 */
+            align-self: flex-end;
         }
         #user-input.editing-mode {
             border-color: #f8bbd0;
@@ -201,8 +230,8 @@
             cursor: pointer;
             transition: background 0.2s, transform 0.1s;
             white-space: nowrap;
-            height: 40px;            /* 固定高度 */
-            align-self: flex-end;    /* 底部对齐 */
+            height: 40px;
+            align-self: flex-end;
             box-sizing: border-box;
             flex-shrink: 0;
         }
@@ -216,33 +245,11 @@
             cursor: not-allowed;
             transform: none;
         }
-        .input-controls {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 0 4px;
-        }
-        .deep-think-toggle {
-            font-size: 14px;
-            color: #888;
-            cursor: pointer;
-            user-select: none;
-            transition: color 0.2s;
-            padding: 4px 8px;
-            border-radius: 12px;
-        }
-        .deep-think-toggle:hover {
-            background: #f0f0f0;
-        }
-        .deep-think-toggle.active {
-            color: #f8bbd0;
-            font-weight: 500;
-        }
         .status {
             text-align: center;
             color: #888;
             font-style: italic;
-            margin-top: 2px; /* 减小间距 */
+            margin-top: 2px;
             min-height: 18px;
             font-size: 14px;
             flex-shrink: 0;
@@ -317,7 +324,7 @@
             transform: translateX(-100%);
             transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
             overflow-y: auto;
-            padding: 30px 20px 2px; /* 减小底部内边距 */
+            padding: 30px 20px 2px;
             display: flex;
             flex-direction: column;
             align-items: stretch;
@@ -366,7 +373,7 @@
         .history-section {
             flex: 1;
             overflow-y: auto;
-            padding: 10px 0 4px 0; /* 减小底部内边距 */
+            padding: 10px 0 4px 0;
             display: flex;
             flex-direction: column;
         }
@@ -443,7 +450,7 @@
         .sidebar-footer {
             margin-top: auto;
             border-top: 1px solid #f0f0f0;
-            padding: 2px 0 0 0; /* 减小内边距 */
+            padding: 2px 0 0 0;
             display: flex;
             align-items: center;
             justify-content: flex-start;
@@ -779,8 +786,8 @@
                 font-size: 15px;
             }
             .deep-think-toggle {
-                font-size: 13px;
-                padding: 2px 6px;
+                font-size: 16px;
+                padding: 4px 18px;
             }
             .edit-indicator {
                 font-size: 11px;
@@ -820,13 +827,15 @@
         <h1>FENG'S DS</h1>
         <div id="chat-box"></div>
         <div class="input-area">
+            <!-- 第一行：深度思考按钮 -->
+            <div class="input-controls">
+                <button class="deep-think-toggle" id="deep-think-toggle">深度思考</button>
+            </div>
+            <!-- 第二行：输入框 + 发送键 -->
             <div class="input-row">
                 <textarea id="user-input" placeholder="输入你的问题..."></textarea>
                 <span class="edit-indicator" id="edit-indicator">✎ 编辑中</span>
                 <button id="send-btn">发送</button>
-            </div>
-            <div class="input-controls">
-                <span class="deep-think-toggle" id="deep-think-toggle">深度思考</span>
             </div>
         </div>
         <div id="status-message" class="status"></div>
