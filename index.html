@@ -94,7 +94,7 @@
             font-size: inherit;
             padding: 4px 8px;
             background: transparent;
-            min-height: 36px;
+            min-height: 40px;
         }
         .ai-message {
             background: white;
@@ -156,7 +156,7 @@
             cursor: default;
         }
 
-        /* ===== 输入区域（调整为一行高度） ===== */
+        /* ===== 输入区域（高度固定为一行） ===== */
         .input-area {
             display: flex;
             flex-direction: column;
@@ -171,7 +171,7 @@
         }
         #user-input {
             flex: 1;
-            padding: 6px 14px;          /* 减小上下内边距 */
+            padding: 8px 16px;
             border: 1px solid #e5e5e5;
             border-radius: 24px;
             outline: none;
@@ -179,22 +179,23 @@
             font-family: inherit;
             background: white;
             resize: vertical;
-            min-height: 36px;           /* 一行高度 */
+            height: 40px;            /* 固定一行高度 */
             max-height: 200px;
             line-height: 1.4;
+            min-height: 40px;        /* 确保不会缩小 */
         }
         #send-btn {
             background: #f8bbd0;
             color: #5d4037;
             border: none;
             border-radius: 24px;
-            padding: 6px 20px;          /* 减小上下内边距 */
+            padding: 8px 24px;
             font-size: 16px;
             font-weight: 700;
             cursor: pointer;
             transition: background 0.2s, transform 0.1s;
             white-space: nowrap;
-            height: auto;
+            height: 40px;            /* 与输入框高度一致 */
             align-self: stretch;
         }
         #send-btn:active {
@@ -762,14 +763,15 @@
             .history-item .time {
                 font-size: 11px;
             }
-            /* 移动端输入框适配 */
             .input-row #user-input {
-                min-height: 32px;
-                padding: 4px 12px;
+                height: 36px;
+                min-height: 36px;
+                padding: 6px 14px;
                 font-size: 15px;
             }
             #send-btn {
-                padding: 4px 16px;
+                height: 36px;
+                padding: 6px 18px;
                 font-size: 15px;
             }
             .deep-think-toggle {
@@ -1072,7 +1074,10 @@
         // 5. 编辑模式管理（修复版）
         // ============================================================
         function enterEditMode(index) {
-            exitEditMode(true);
+            // 先退出当前编辑（如果有）
+            if (editingUserIndex >= 0) {
+                exitEditMode(true);
+            }
             const msg = messages[index];
             if (!msg || msg.type !== 'user') return;
             editingUserIndex = index;
@@ -1568,23 +1573,13 @@
         }
 
         // ============================================================
-        // 9. 事件绑定（点击用户消息进入编辑模式）—— 修复版
+        // 9. 事件绑定（修复编辑功能）
         // ============================================================
-        // 使用 chatBox 的点击事件，但避开编辑中的 textarea
         chatBox.addEventListener('click', function(e) {
             // 如果点击的是 textarea，不处理（由内部事件处理）
             if (e.target.tagName === 'TEXTAREA') return;
 
-            // 如果当前在编辑模式，点击其他地方（非编辑气泡）则保存草稿并退出
-            if (editingUserIndex >= 0) {
-                const wrapper = e.target.closest('.message-wrapper');
-                if (!wrapper || !wrapper.querySelector('.user-message.editing')) {
-                    saveDraftAndExit();
-                    return;
-                }
-            }
-
-            // 点击用户消息（非编辑状态）进入编辑
+            // 获取点击的消息元素
             const bubble = e.target.closest('.message');
             if (!bubble) return;
             if (bubble.classList.contains('welcome-message')) return;
@@ -1592,24 +1587,47 @@
             if (isNaN(index)) return;
             const msg = messages[index];
             if (!msg) return;
+
             if (msg.type === 'user') {
-                // 如果该消息已有编辑草稿，使用草稿
-                editingDraft = msg.editedText !== undefined ? msg.editedText : msg.text;
-                enterEditMode(index);
+                // 如果当前已有编辑且点击的是另一个用户消息，先保存当前编辑
+                if (editingUserIndex >= 0 && editingUserIndex !== index) {
+                    // 保存当前草稿
+                    const currentMsg = messages[editingUserIndex];
+                    if (currentMsg) {
+                        const textarea = document.querySelector('.user-message.editing textarea');
+                        if (textarea) {
+                            currentMsg.editedText = textarea.value;
+                        } else {
+                            currentMsg.editedText = editingDraft;
+                        }
+                    }
+                    editingUserIndex = -1;
+                    editingDraft = '';
+                    renderMessages();
+                    // 然后进入新的编辑
+                    setTimeout(() => {
+                        enterEditMode(index);
+                    }, 50);
+                } else if (editingUserIndex === -1) {
+                    // 没有编辑状态，直接进入编辑
+                    enterEditMode(index);
+                }
+                // 如果点击的是当前正在编辑的消息，忽略（不做任何操作）
+            } else {
+                // 点击的是 AI 消息，如果有编辑状态则保存退出
+                if (editingUserIndex >= 0) {
+                    saveDraftAndExit();
+                }
             }
         });
 
-        // 点击文档其他区域（非聊天框内部）也保存草稿
+        // 点击其他空白区域保存草稿
         document.addEventListener('click', function(e) {
             if (editingUserIndex >= 0) {
-                const isInChat = e.target.closest('#chat-box');
-                if (!isInChat) {
-                    saveDraftAndExit();
-                    return;
-                }
-                // 如果点击在 chat-box 内，但不是编辑区域，也保存退出
                 const wrapper = e.target.closest('.message-wrapper');
-                if (wrapper && !wrapper.querySelector('.user-message.editing')) {
+                const isInChat = e.target.closest('#chat-box');
+                // 如果点击不在聊天框内，或者点击的不是编辑中的消息，则保存退出
+                if (!isInChat || (wrapper && wrapper.querySelector('.user-message.editing') === null)) {
                     saveDraftAndExit();
                 }
             }
