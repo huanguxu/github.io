@@ -72,8 +72,8 @@
             border-radius: 18px;
             word-wrap: break-word;
             width: 100%;
-            white-space: pre-wrap;
-            line-height: 1.6;
+            white-space: pre-wrap;   /* 保留换行，实现分段 */
+            line-height: 1.6;        /* 增加行距，更舒适 */
         }
         .user-message {
             background: #ffebee;
@@ -408,6 +408,7 @@
             letter-spacing: 0.3px;
         }
 
+        /* ===== 修改历史记录项为两行布局 ===== */
         .history-item {
             display: flex;
             flex-direction: column;
@@ -709,6 +710,7 @@
             display: block;
         }
 
+        /* ===== 上下文菜单按钮样式（含SVG图标） ===== */
         .context-menu button {
             display: flex;
             align-items: center;
@@ -742,15 +744,17 @@
         .context-menu button:hover svg {
             color: #f48fb1;
         }
+        /* 置顶图标倾斜，与重命名铅笔风格一致 */
         #menu-pin svg {
             transform: rotate(30deg);
             display: inline-block;
         }
+        /* 删除按钮红色 + 分隔效果 */
         .context-menu .danger {
             color: #d32f2f;
-            border-top: 2px double #ddd;
-            padding-top: 12px;
-            margin-top: 4px;
+            border-top: 1px solid #e0e0e0;   /* 添加上边框分隔线 */
+            margin-top: 6px;                 /* 增加上方间距 */
+            padding-top: 14px;               /* 调整内边距，保持视觉平衡 */
         }
         .context-menu .danger svg {
             color: #d32f2f;
@@ -759,6 +763,7 @@
             color: #b71c1c;
         }
 
+        /* ===== 响应式 ===== */
         @media (max-width: 480px) {
             .main-content {
                 padding: 15px 12px 6px;
@@ -973,6 +978,7 @@
         </div>
     </div>
 
+    <!-- ===== 修改后的上下文菜单（SVG图标） ===== -->
     <div class="context-menu" id="context-menu">
         <button id="menu-rename">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -995,6 +1001,9 @@
     </div>
 
     <script>
+        // ============================================================
+        // 1. 配置与 DOM 引用
+        // ============================================================
         const STORAGE_KEYS = {
             apiKey: 'fengs_api_key',
             model: 'fengs_model',
@@ -1032,6 +1041,9 @@
         const showTokenCheckbox = document.getElementById('show-token-checkbox');
         const memoryStrategySelect = document.getElementById('memory-strategy-select');
 
+        // ============================================================
+        // 2. 全局变量
+        // ============================================================
         let messages = [];
         let isGenerating = false;
         const WELCOME_TEXT = '甜心，祝你今天过得愉快！';
@@ -1044,6 +1056,9 @@
         let editingDraft = '';
         let originalText = '';
 
+        // ============================================================
+        // 3. 数据管理
+        // ============================================================
         function getSessions() {
             const stored = localStorage.getItem(STORAGE_KEYS.sessions);
             return stored ? JSON.parse(stored) : [];
@@ -1129,6 +1144,9 @@
             }
         }
 
+        // ============================================================
+        // 4. 工具函数
+        // ============================================================
         function estimateTokens(text) {
             if (!text) return 0;
             let chineseCount = 0,
@@ -1177,6 +1195,9 @@
             return total;
         }
 
+        // ============================================================
+        // 5. 编辑模式管理
+        // ============================================================
         function enterEditMode(index) {
             if (editingUserIndex >= 0) {
                 exitEditMode(true);
@@ -1307,25 +1328,34 @@
             }
         }
 
+        // ★★★★★ 修正后的 autoResize：严格判断是否超过一行 ★★★★★
         function autoResize(textarea) {
             const computed = window.getComputedStyle(textarea);
             const minHeight = parseFloat(computed.minHeight) || 40;
             const maxHeight = parseFloat(computed.maxHeight) || 150;
 
+            // 先强制重置为 minHeight
             textarea.style.height = minHeight + 'px';
 
+            // 如果内容为空或只有空白，直接保持 minHeight
             if (!textarea.value || textarea.value.trim() === '') {
                 return;
             }
 
+            // 重新获取 scrollHeight（此时高度为 minHeight）
             const scrollHeight = textarea.scrollHeight;
 
+            // 只有当 scrollHeight 明显大于 minHeight（加2px容差）时才拉高
             if (scrollHeight > minHeight + 2) {
                 const target = Math.min(scrollHeight, maxHeight);
                 textarea.style.height = target + 'px';
             }
+            // 否则保持 minHeight（已设置）
         }
 
+        // ============================================================
+        // 6. 聊天渲染
+        // ============================================================
         function renderMessages() {
             chatBox.innerHTML = '';
 
@@ -1424,6 +1454,9 @@
             renderMessages();
         }
 
+        // ============================================================
+        // 7. API 调用
+        // ============================================================
         function getApiKey() {
             return localStorage.getItem(STORAGE_KEYS.apiKey) || '';
         }
@@ -1526,6 +1559,10 @@
             }
             return fullReply;
         }
+
+        // ============================================================
+        // 8. 核心操作
+        // ============================================================
 
         function resetChat() {
             saveCurrentSession();
@@ -1679,6 +1716,9 @@
             }
         }
 
+        // ============================================================
+        // 9. 事件绑定
+        // ============================================================
         chatBox.addEventListener('pointerdown', function(e) {
             if (e.target.tagName === 'TEXTAREA') return;
 
@@ -1735,6 +1775,9 @@
             autoResize(this);
         });
 
+        // ============================================================
+        // 10. 设置管理
+        // ============================================================
         function loadSettings() {
             const savedApiKey = localStorage.getItem(STORAGE_KEYS.apiKey) || '';
             const savedModel = localStorage.getItem(STORAGE_KEYS.model) || 'deepseek-v4-flash';
@@ -1795,6 +1838,9 @@
             settingsOverlay.classList.remove('active');
         }
 
+        // ============================================================
+        // 11. 侧滑栏开关
+        // ============================================================
         function openSidebar() {
             sidebar.classList.add('open');
             overlay.classList.add('active');
@@ -1824,6 +1870,9 @@
         });
         overlay.addEventListener('click', closeSidebar);
 
+        // ============================================================
+        // 12. 设置按钮事件
+        // ============================================================
         settingsBtn.addEventListener('click', openSettings);
         settingsSave.addEventListener('click', saveSettings);
         settingsClose.addEventListener('click', closeSettings);
@@ -1878,6 +1927,9 @@
             applyFontSize(parseInt(val));
         });
 
+        // ============================================================
+        // 13. 搜索功能
+        // ============================================================
         function performSearch() {
             searchKeyword = searchInput.value.trim().toLowerCase();
             renderHistory();
@@ -1886,6 +1938,9 @@
         searchInput.addEventListener('input', performSearch);
         searchBtn.addEventListener('click', performSearch);
 
+        // ============================================================
+        // 14. 历史记录渲染
+        // ============================================================
         function renderHistory() {
             const sessions = getSessions();
             let html = '<div class="history-main-title">历史记录</div>';
@@ -2097,6 +2152,9 @@
             hideContextMenu();
         });
 
+        // ============================================================
+        // 15. 发送和新建
+        // ============================================================
         sendBtn.addEventListener('click', sendMessage);
         userInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -2123,6 +2181,9 @@
             this.classList.toggle('active');
         });
 
+        // ============================================================
+        // 16. 初始化
+        // ============================================================
         function init() {
             loadSettings();
             const sessions = getSessions();
