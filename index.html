@@ -137,7 +137,7 @@
             cursor: default;
         }
 
-        /* ===== 输入区域（含自动拉高） ===== */
+        /* ===== 输入区域 ===== */
         .input-area {
             display: flex;
             flex-direction: column;
@@ -160,12 +160,14 @@
             font-size: 16px;
             font-family: inherit;
             background: white;
-            resize: none; /* 禁止手动拖拽，由JS控制 */
+            resize: none;
+            height: 40px;
             min-height: 40px;
             max-height: 150px;
             line-height: 1.4;
             transition: border-color 0.2s;
-            overflow-y: auto; /* 超出滚动 */
+            overflow-y: auto;
+            box-sizing: border-box;
         }
         #user-input.editing-mode {
             border-color: #f8bbd0;
@@ -200,6 +202,7 @@
             white-space: nowrap;
             height: 40px;
             align-self: stretch;
+            box-sizing: border-box;
         }
         #send-btn:active {
             background: #f48fb1;
@@ -760,6 +763,7 @@
                 font-size: 11px;
             }
             #user-input {
+                height: 36px;
                 min-height: 36px;
                 max-height: 120px;
                 padding: 6px 14px;
@@ -927,9 +931,9 @@
         let deepThinkingEnabled = false;
 
         // 编辑模式（在发送框中编辑）
-        let editingUserIndex = -1;          // 正在编辑的用户消息索引
-        let editingDraft = '';              // 当前输入框草稿
-        let originalText = '';              // 原始消息文本
+        let editingUserIndex = -1;
+        let editingDraft = '';
+        let originalText = '';
 
         // ============================================================
         // 3. 数据管理
@@ -977,7 +981,7 @@
             const sessions = getSessions();
             const session = sessions.find(s => s.id === sessionId);
             if (!session) return false;
-            exitEditMode(true); // 退出编辑
+            exitEditMode(true);
             saveCurrentSession();
             messages = JSON.parse(JSON.stringify(session.messages));
             currentSessionId = sessionId;
@@ -1073,7 +1077,6 @@
         // 5. 编辑模式管理（基于发送框）
         // ============================================================
         function enterEditMode(index) {
-            // 退出当前编辑（如果有）
             if (editingUserIndex >= 0) {
                 exitEditMode(true);
             }
@@ -1081,17 +1084,13 @@
             if (!msg || msg.type !== 'user') return;
             editingUserIndex = index;
             originalText = msg.text;
-            // 如果有草稿则使用草稿，否则用原始文本
             const draft = msg.editedText !== undefined ? msg.editedText : msg.text;
             editingDraft = draft;
             userInput.value = draft;
-            // 更新输入框样式
             userInput.classList.add('editing-mode');
             editIndicator.classList.add('show');
-            // 自动调整高度
             autoResize(userInput);
             userInput.focus();
-            // 将光标移到末尾
             userInput.setSelectionRange(userInput.value.length, userInput.value.length);
         }
 
@@ -1108,11 +1107,8 @@
                 originalText = '';
                 userInput.classList.remove('editing-mode');
                 editIndicator.classList.remove('show');
-                // 清空输入框（如果未提交修改，不保留草稿在输入框中）
-                // 但草稿已保存在 editedText 中，点击消息时会恢复
                 userInput.value = '';
                 autoResize(userInput);
-                // 退出编辑不重新渲染，保持消息显示不变
             }
         }
 
@@ -1122,10 +1118,8 @@
             if (!msg) return;
             const newText = userInput.value.trim();
             if (newText && newText !== originalText) {
-                // 更新消息文本
                 msg.text = newText;
-                msg.editedText = undefined; // 清除草稿
-                // 删除该消息之后的所有消息
+                msg.editedText = undefined;
                 messages = messages.slice(0, editingUserIndex + 1);
                 editingUserIndex = -1;
                 editingDraft = '';
@@ -1135,7 +1129,6 @@
                 userInput.value = '';
                 autoResize(userInput);
                 renderMessages();
-                // 重新生成 AI 回复
                 statusMsg.textContent = '重新生成中...';
                 sendBtn.disabled = true;
                 isGenerating = true;
@@ -1183,7 +1176,6 @@
                     }
                 })();
             } else {
-                // 内容未变，仅退出编辑
                 editingUserIndex = -1;
                 editingDraft = '';
                 originalText = '';
@@ -1195,7 +1187,6 @@
             }
         }
 
-        // 自动保存草稿并退出
         function saveDraftAndExit() {
             if (editingUserIndex >= 0) {
                 const msg = messages[editingUserIndex];
@@ -1211,11 +1202,10 @@
                 editIndicator.classList.remove('show');
                 userInput.value = '';
                 autoResize(userInput);
-                renderMessages(); // 确保显示原始消息
+                renderMessages();
             }
         }
 
-        // 输入框自动拉高
         function autoResize(textarea) {
             textarea.style.height = 'auto';
             textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
@@ -1446,9 +1436,8 @@
         async function sendMessage() {
             const text = userInput.value.trim();
             if (!text) {
-                // 如果处于编辑模式且无内容，退出编辑
                 if (editingUserIndex >= 0) {
-                    exitEditMode(false); // 不保存
+                    exitEditMode(false);
                 }
                 return;
             }
@@ -1456,7 +1445,6 @@
                 alert('正在生成中，请稍候');
                 return;
             }
-            // 如果有编辑中的用户消息，提交编辑
             if (editingUserIndex >= 0) {
                 commitEdit();
                 return;
@@ -1587,9 +1575,7 @@
         // ============================================================
         // 9. 事件绑定（移动端优化 - 使用 pointerdown）
         // ============================================================
-        // 点击用户消息 -> 进入编辑模式（将内容放入发送框）
         chatBox.addEventListener('pointerdown', function(e) {
-            // 如果点击的是 textarea，不处理
             if (e.target.tagName === 'TEXTAREA') return;
 
             const bubble = e.target.closest('.message');
@@ -1602,51 +1588,38 @@
 
             if (msg.type === 'user') {
                 e.preventDefault();
-                // 如果已有编辑且点击的是另一个用户消息，先保存当前编辑再进入新的
                 if (editingUserIndex >= 0 && editingUserIndex !== index) {
                     saveDraftAndExit();
-                    // 延迟进入新编辑
                     setTimeout(() => {
                         enterEditMode(index);
                     }, 50);
                 } else if (editingUserIndex === -1) {
                     enterEditMode(index);
                 }
-                // 如果点击的是当前正在编辑的消息，不做任何操作
             } else {
-                // 点击 AI 消息，如果有编辑状态则保存退出
                 if (editingUserIndex >= 0) {
                     saveDraftAndExit();
                 }
             }
         });
 
-        // 点击其他空白区域保存草稿（使用 pointerdown）
         document.addEventListener('pointerdown', function(e) {
             if (editingUserIndex >= 0) {
                 const wrapper = e.target.closest('.message-wrapper');
                 const isInChat = e.target.closest('#chat-box');
                 const isInInputRow = e.target.closest('.input-row');
-                // 如果点击不在聊天框内，且不在输入行内（避免点击输入框自身触发退出）
                 if (!isInChat && !isInInputRow) {
                     saveDraftAndExit();
                 } else if (isInChat) {
-                    // 在聊天框内，但点击的不是编辑中的用户消息（即点击其他消息或空白）
                     if (wrapper && wrapper.querySelector('.user-message')) {
-                        const clickedUser = wrapper.querySelector('.user-message');
-                        if (clickedUser) {
-                            // 如果点击的是用户消息，且不是当前编辑的那条，由上面的 chatBox 事件处理
-                            // 这里不做处理，防止重复
-                        }
+                        // 点击用户消息由 chatBox 事件处理，这里不重复
                     } else {
-                        // 点击空白区域（聊天框内非消息区域）
                         saveDraftAndExit();
                     }
                 }
             }
         });
 
-        // 按 ESC 键退出编辑（不保存）
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && editingUserIndex >= 0) {
                 exitEditMode(false);
@@ -1654,7 +1627,6 @@
             }
         });
 
-        // 输入框自动拉高
         userInput.addEventListener('input', function() {
             autoResize(this);
         });
@@ -1723,7 +1695,7 @@
         }
 
         // ============================================================
-        // 11. 侧滑栏开关
+        // 11. 侧滑栏开关（已移除自动聚焦搜索框）
         // ============================================================
         function openSidebar() {
             sidebar.classList.add('open');
@@ -1733,7 +1705,7 @@
             newChatBtn.style.cursor = 'default';
             if (editingUserIndex >= 0) saveDraftAndExit();
             setTimeout(() => {
-                searchInput.focus();
+                // 不再自动聚焦搜索框，防止键盘弹出
                 renderHistory();
             }, 400);
         }
