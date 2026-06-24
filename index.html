@@ -157,7 +157,7 @@
         }
         .deep-think-toggle {
             background: transparent;
-            border: 1px solid #f8bbd0;  /* 修改为 1px，与输入框一致 */
+            border: 1px solid #f8bbd0;
             border-radius: 50px;
             padding: 2px 10px;
             font-size: 12px;
@@ -439,7 +439,7 @@
             gap: 10px;
         }
         .history-item .question-text {
-            font-weight: 700;          /* 加粗 */
+            font-weight: 700;
             color: #333;
             font-size: 15px;
             white-space: nowrap;
@@ -455,9 +455,8 @@
             flex-shrink: 0;
             margin-left: 8px;
         }
-        /* 新增预览行 */
         .history-item .preview-row {
-            font-weight: 400;          /* 不加粗 */
+            font-weight: 400;
             font-size: 13px;
             color: #999;
             white-space: nowrap;
@@ -494,7 +493,7 @@
             align-items: center;
             justify-content: center;
             outline: none;
-            margin-top: 0px;   /* 已上移 */
+            margin-top: 0px;
         }
         #settings-btn:active {
             transform: scale(0.85);
@@ -708,8 +707,12 @@
         .context-menu.active {
             display: block;
         }
+
+        /* ===== 上下文菜单按钮样式（含SVG图标） ===== */
         .context-menu button {
-            display: block;
+            display: flex;
+            align-items: center;
+            gap: 8px;
             width: 100%;
             padding: 12px 20px;
             border: none;
@@ -731,8 +734,28 @@
         .context-menu button:active {
             background: #eee;
         }
+        .context-menu button svg {
+            flex-shrink: 0;
+            color: #f8bbd0;
+            transition: color 0.2s;
+        }
+        .context-menu button:hover svg {
+            color: #f48fb1;
+        }
+        /* 置顶图标倾斜，与重命名铅笔风格一致 */
+        #menu-pin svg {
+            transform: rotate(-30deg);
+            display: inline-block;
+        }
+        /* 删除按钮红色 */
         .context-menu .danger {
             color: #d32f2f;
+        }
+        .context-menu .danger svg {
+            color: #d32f2f;
+        }
+        .context-menu .danger:hover svg {
+            color: #b71c1c;
         }
 
         /* ===== 响应式 ===== */
@@ -950,10 +973,26 @@
         </div>
     </div>
 
+    <!-- ===== 修改后的上下文菜单（SVG图标） ===== -->
     <div class="context-menu" id="context-menu">
-        <button id="menu-rename">✏️ 重命名</button>
-        <button id="menu-pin">📌 置顶</button>
-        <button id="menu-delete" class="danger">🗑️ 删除</button>
+        <button id="menu-rename">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+            </svg>
+            重命名
+        </button>
+        <button id="menu-pin">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H19v-2l-3-3z"/>
+            </svg>
+            置顶
+        </button>
+        <button id="menu-delete" class="danger">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+            </svg>
+            删除
+        </button>
     </div>
 
     <script>
@@ -1895,7 +1934,7 @@
         searchBtn.addEventListener('click', performSearch);
 
         // ============================================================
-        // 14. 历史记录渲染（修改了 buildSessionItemHtml）
+        // 14. 历史记录渲染
         // ============================================================
         function renderHistory() {
             const sessions = getSessions();
@@ -1973,7 +2012,6 @@
             });
         }
 
-        // ===== 修改后的 buildSessionItemHtml：增加预览行 =====
         function buildSessionItemHtml(session) {
             const timeStr = new Date(session.timestamp).toLocaleTimeString('zh-CN', {
                 hour: '2-digit',
@@ -1982,7 +2020,6 @@
             });
             const pinnedClass = session.pinned ? 'pinned' : '';
 
-            // 提取预览文本：取第一条用户消息之后的 AI 回复（非欢迎语）
             let previewText = '（暂无内容）';
             let foundUser = false;
             for (let i = 0; i < session.messages.length; i++) {
@@ -1994,7 +2031,6 @@
                     break;
                 }
             }
-            // 截断预览，最多 50 个字符
             if (previewText.length > 50) {
                 previewText = previewText.substring(0, 50) + '...';
             }
@@ -2152,7 +2188,6 @@
             } else {
                 resetChat();
             }
-            // 确保输入框高度正确
             autoResize(userInput);
             renderHistory();
             userInput.focus();
