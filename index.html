@@ -148,7 +148,7 @@
         .input-row {
             display: flex;
             gap: 10px;
-            align-items: stretch;
+            align-items: flex-end;  /* 关键：发送键底部与输入框底部对齐 */
             position: relative;
         }
         #user-input {
@@ -200,9 +200,9 @@
             cursor: pointer;
             transition: background 0.2s, transform 0.1s;
             white-space: nowrap;
-            height: 40px;
-            align-self: stretch;
+            height: 40px;            /* 高度固定不变 */
             box-sizing: border-box;
+            flex-shrink: 0;          /* 防止被压缩 */
         }
         #send-btn:active {
             background: #f48fb1;
@@ -1705,7 +1705,6 @@
             newChatBtn.style.cursor = 'default';
             if (editingUserIndex >= 0) saveDraftAndExit();
             setTimeout(() => {
-                // 不再自动聚焦搜索框，防止键盘弹出
                 renderHistory();
             }, 400);
         }
