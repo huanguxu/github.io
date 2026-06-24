@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>FENG'S DS</title>
     <style>
+        /* ===== 全局重置 ===== */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body {
             height: 100%;
@@ -16,6 +17,7 @@
             height: 100vh;
         }
 
+        /* ===== 主界面 ===== */
         .main-content {
             display: flex;
             flex-direction: column;
@@ -25,6 +27,7 @@
             padding: 20px 16px 12px;
             background: white;
             box-shadow: 0 0 20px rgba(0,0,0,0.05);
+            position: relative;
         }
         .main-content h1 {
             text-align: center;
@@ -152,6 +155,8 @@
             line-height: 1.4;
             cursor: default;
         }
+
+        /* ===== 输入区域（调整高度为一行） ===== */
         .input-area {
             display: flex;
             flex-direction: column;
@@ -166,7 +171,7 @@
         }
         #user-input {
             flex: 1;
-            padding: 12px 16px;
+            padding: 8px 16px;
             border: 1px solid #e5e5e5;
             border-radius: 24px;
             outline: none;
@@ -174,7 +179,7 @@
             font-family: inherit;
             background: white;
             resize: vertical;
-            min-height: 52px;
+            min-height: 40px;        /* 一行高度 */
             max-height: 200px;
             line-height: 1.4;
         }
@@ -183,13 +188,13 @@
             color: #5d4037;
             border: none;
             border-radius: 24px;
-            padding: 12px 24px;
+            padding: 8px 24px;
             font-size: 16px;
             font-weight: 700;
             cursor: pointer;
             transition: background 0.2s, transform 0.1s;
             white-space: nowrap;
-            height: 52px;
+            height: auto;            /* 自动匹配输入框高度 */
             align-self: stretch;
         }
         #send-btn:active {
@@ -209,19 +214,20 @@
             padding: 0 4px;
         }
         .deep-think-toggle {
-            display: flex;
-            align-items: center;
-            gap: 6px;
             font-size: 14px;
-            color: #555;
+            color: #888;
             cursor: pointer;
             user-select: none;
+            transition: color 0.2s;
+            padding: 4px 8px;
+            border-radius: 12px;
         }
-        .deep-think-toggle input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            accent-color: #f8bbd0;
-            cursor: pointer;
+        .deep-think-toggle:hover {
+            background: #f0f0f0;
+        }
+        .deep-think-toggle.active {
+            color: #f8bbd0;
+            font-weight: 500;
         }
         .status {
             text-align: center;
@@ -351,7 +357,7 @@
             transform: scale(0.95);
         }
 
-        /* 历史记录（会话列表） */
+        /* 历史记录 */
         .history-section {
             flex: 1;
             overflow-y: auto;
@@ -429,7 +435,7 @@
             font-size: 15px;
         }
 
-        /* ===== 底部设置（图标置底） ===== */
+        /* 底部设置 */
         .sidebar-footer {
             margin-top: auto;
             border-top: 1px solid #f0f0f0;
@@ -649,7 +655,7 @@
             transform: scale(0.96);
         }
 
-        /* 上下文菜单（长按历史记录） */
+        /* 上下文菜单 */
         .context-menu {
             display: none;
             position: fixed;
@@ -756,62 +762,55 @@
             .history-item .time {
                 font-size: 11px;
             }
+            /* 移动端输入框适配 */
             .input-row #user-input {
-                min-height: 44px;
+                min-height: 36px;
+                padding: 6px 14px;
                 font-size: 15px;
-                padding: 10px 14px;
             }
             #send-btn {
-                height: 44px;
+                padding: 6px 18px;
                 font-size: 15px;
-                padding: 10px 18px;
             }
             .deep-think-toggle {
                 font-size: 13px;
+                padding: 2px 6px;
             }
         }
     </style>
 </head>
 <body>
 
-    <!-- 主页面 -->
+    <!-- ===== 主界面 ===== -->
     <div class="main-content">
         <h1>FENG'S DS</h1>
-        <div id="chat-box">
-            <!-- 由 JS 渲染 -->
-        </div>
+        <div id="chat-box"></div>
         <div class="input-area">
             <div class="input-row">
                 <textarea id="user-input" placeholder="输入你的问题..."></textarea>
                 <button id="send-btn">发送</button>
             </div>
             <div class="input-controls">
-                <label class="deep-think-toggle">
-                    <input type="checkbox" id="deep-think-checkbox" />
-                    深度思考
-                </label>
+                <span class="deep-think-toggle" id="deep-think-toggle">深度思考</span>
             </div>
         </div>
         <div id="status-message" class="status"></div>
     </div>
 
-    <!-- 菜单按钮 -->
+    <!-- ===== 菜单按钮 ===== -->
     <button id="menu-btn" aria-label="打开侧边栏">☰</button>
-    <!-- 加号按钮 -->
     <button id="new-chat-btn" aria-label="新建对话">+</button>
 
-    <!-- 遮罩 -->
+    <!-- ===== 遮罩 ===== -->
     <div class="overlay" id="overlay"></div>
 
-    <!-- 侧滑栏 -->
+    <!-- ===== 侧滑栏 ===== -->
     <div class="sidebar" id="sidebar">
         <div class="search-container">
             <input type="text" id="search-input" placeholder="搜索历史记录..." />
             <button id="search-btn">搜索</button>
         </div>
-        <div class="history-section" id="history-container">
-            <!-- 历史记录由 JS 渲染 -->
-        </div>
+        <div class="history-section" id="history-container"></div>
         <div class="sidebar-footer">
             <button id="settings-btn" aria-label="设置">
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -821,7 +820,7 @@
         </div>
     </div>
 
-    <!-- 设置面板 -->
+    <!-- ===== 设置面板 ===== -->
     <div class="settings-overlay" id="settings-overlay">
         <div class="settings-card">
             <h2>设置</h2>
@@ -869,7 +868,7 @@
         </div>
     </div>
 
-    <!-- 上下文菜单（长按历史记录） -->
+    <!-- ===== 上下文菜单 ===== -->
     <div class="context-menu" id="context-menu">
         <button id="menu-rename">✏️ 重命名</button>
         <button id="menu-pin">📌 置顶</button>
@@ -902,7 +901,7 @@
         const settingsBtn = document.getElementById('settings-btn');
         const searchInput = document.getElementById('search-input');
         const searchBtn = document.getElementById('search-btn');
-        const deepThinkCheckbox = document.getElementById('deep-think-checkbox');
+        const deepThinkToggle = document.getElementById('deep-think-toggle');
 
         const settingsOverlay = document.getElementById('settings-overlay');
         const apiKeyInput = document.getElementById('api-key-input');
@@ -928,11 +927,11 @@
         let deepThinkingEnabled = false;
 
         // 编辑状态
-        let editingUserIndex = -1;          // 正在编辑的用户消息索引
-        let editingDraft = '';              // 草稿内容
+        let editingUserIndex = -1;
+        let editingDraft = '';
 
         // ============================================================
-        // 3. 数据管理（会话存储）
+        // 3. 数据管理
         // ============================================================
         function getSessions() {
             const stored = localStorage.getItem(STORAGE_KEYS.sessions);
@@ -977,8 +976,7 @@
             const sessions = getSessions();
             const session = sessions.find(s => s.id === sessionId);
             if (!session) return false;
-            // 退出编辑状态
-            exitEditMode(true);
+            if (editingUserIndex >= 0) exitEditMode(true);
             saveCurrentSession();
             messages = JSON.parse(JSON.stringify(session.messages));
             currentSessionId = sessionId;
@@ -1074,15 +1072,13 @@
         // 5. 编辑模式管理
         // ============================================================
         function enterEditMode(index) {
-            // 退出之前的编辑
             exitEditMode(true);
             const msg = messages[index];
             if (!msg || msg.type !== 'user') return;
             editingUserIndex = index;
-            editingDraft = msg.text;
+            editingDraft = msg.editedText !== undefined ? msg.editedText : msg.text;
             renderMessages();
-            // 聚焦到 textarea
-            const textarea = document.querySelector(`.user-message.editing textarea`);
+            const textarea = document.querySelector('.user-message.editing textarea');
             if (textarea) {
                 textarea.focus();
                 textarea.setSelectionRange(textarea.value.length, textarea.value.length);
@@ -1093,8 +1089,13 @@
             if (editingUserIndex >= 0) {
                 const msg = messages[editingUserIndex];
                 if (msg && saveDraft) {
-                    // 保存草稿到消息的编辑草稿字段
-                    msg.editedText = editingDraft;
+                    const textarea = document.querySelector('.user-message.editing textarea');
+                    if (textarea) {
+                        editingDraft = textarea.value;
+                        msg.editedText = editingDraft;
+                    } else {
+                        msg.editedText = editingDraft;
+                    }
                 }
                 editingUserIndex = -1;
                 editingDraft = '';
@@ -1106,21 +1107,18 @@
             if (editingUserIndex < 0) return;
             const msg = messages[editingUserIndex];
             if (!msg) return;
-            // 使用草稿内容更新消息
-            const newText = editingDraft.trim();
+            const textarea = document.querySelector('.user-message.editing textarea');
+            const newText = textarea ? textarea.value.trim() : editingDraft.trim();
             if (newText && newText !== msg.text) {
                 msg.text = newText;
-                // 删除该消息之后的所有消息（包括对应的AI回复）
+                msg.editedText = undefined;
                 messages = messages.slice(0, editingUserIndex + 1);
-                // 退出编辑
                 editingUserIndex = -1;
                 editingDraft = '';
                 renderMessages();
-                // 触发重新生成
                 statusMsg.textContent = '重新生成中...';
                 sendBtn.disabled = true;
                 isGenerating = true;
-                // 异步重新生成
                 (async () => {
                     try {
                         const aiMsg = { type: 'ai', text: '...', versions: [{ text: '...', cumulativeTokens: 0 }],
@@ -1165,23 +1163,23 @@
                     }
                 })();
             } else {
-                // 内容未变，仅退出编辑
                 editingUserIndex = -1;
                 editingDraft = '';
                 renderMessages();
             }
         }
 
-        // 点击其他地方时，保存草稿但不提交
         function saveDraftAndExit() {
             if (editingUserIndex >= 0) {
                 const msg = messages[editingUserIndex];
                 if (msg) {
-                    const textarea = document.querySelector(`.user-message.editing textarea`);
+                    const textarea = document.querySelector('.user-message.editing textarea');
                     if (textarea) {
                         editingDraft = textarea.value;
+                        msg.editedText = editingDraft;
+                    } else {
+                        msg.editedText = editingDraft;
                     }
-                    msg.editedText = editingDraft;
                 }
                 editingUserIndex = -1;
                 editingDraft = '';
@@ -1209,7 +1207,6 @@
                     bubble.classList.add('welcome-message');
                 }
 
-                // 用户消息编辑模式
                 if (msg.type === 'user' && editingUserIndex === index) {
                     bubble.classList.add('editing');
                     const textarea = document.createElement('textarea');
@@ -1223,8 +1220,8 @@
                             commitEdit();
                         }
                     });
+                    textarea.addEventListener('click', (e) => e.stopPropagation());
                     bubble.appendChild(textarea);
-                    // 自动调整高度
                     textarea.style.height = 'auto';
                     textarea.style.height = textarea.scrollHeight + 'px';
                     textarea.addEventListener('input', () => {
@@ -1347,7 +1344,6 @@
                 historyToSend = historyMessages.slice(-100);
             }
 
-            // 构建系统提示词，根据深度思考开关添加指示
             let systemContent = 'You are a highly intelligent assistant that remembers the full conversation context. Always refer back to previous exchanges to provide coherent and accurate responses.';
             if (deepThinkingEnabled) {
                 systemContent += ' Please provide your reasoning process step by step before giving the final answer. Make sure to clearly separate the reasoning from the final answer.';
@@ -1445,7 +1441,6 @@
                 alert('正在生成中，请稍候');
                 return;
             }
-            // 如果有编辑中的用户消息，先提交编辑
             if (editingUserIndex >= 0) {
                 commitEdit();
                 return;
@@ -1504,7 +1499,6 @@
             }
         }
 
-        // 重新生成 AI 消息（保留版本）
         async function regenerateAIMessage(index) {
             if (isGenerating) {
                 alert('正在生成中，请稍候');
@@ -1523,7 +1517,6 @@
                 alert('无法找到对应的用户消息');
                 return;
             }
-            const userText = messages[userIndex].text;
 
             const aiMsg = messages[index];
             ensureVersionObjects(aiMsg);
@@ -1575,22 +1568,19 @@
         }
 
         // ============================================================
-        // 9. 事件绑定（点击用户消息 -> 进入编辑模式）
+        // 9. 事件绑定（点击用户消息进入编辑模式）
         // ============================================================
         chatBox.addEventListener('click', function(e) {
-            // 如果点击的是编辑中的 textarea，不处理（由内部事件处理）
             if (e.target.tagName === 'TEXTAREA') return;
 
-            // 如果点击在编辑气泡外，保存草稿并退出
             if (editingUserIndex >= 0) {
-                const bubble = e.target.closest('.message-wrapper');
-                if (!bubble || !bubble.querySelector('.user-message.editing')) {
+                const wrapper = e.target.closest('.message-wrapper');
+                if (!wrapper || !wrapper.querySelector('.user-message.editing')) {
                     saveDraftAndExit();
                     return;
                 }
             }
 
-            // 点击用户消息（非编辑状态）进入编辑
             const bubble = e.target.closest('.message');
             if (!bubble) return;
             if (bubble.classList.contains('welcome-message')) return;
@@ -1599,27 +1589,25 @@
             const msg = messages[index];
             if (!msg) return;
             if (msg.type === 'user') {
-                // 如果该消息已有编辑草稿，使用草稿
-                if (msg.editedText !== undefined) {
-                    editingDraft = msg.editedText;
-                } else {
-                    editingDraft = msg.text;
-                }
+                editingDraft = msg.editedText !== undefined ? msg.editedText : msg.text;
                 enterEditMode(index);
             }
         });
 
-        // 点击其他空白区域保存草稿
         document.addEventListener('click', function(e) {
             if (editingUserIndex >= 0) {
                 const wrapper = e.target.closest('.message-wrapper');
-                if (!wrapper || !wrapper.querySelector('.user-message.editing')) {
-                    saveDraftAndExit();
+                const isInChat = e.target.closest('#chat-box');
+                if (!isInChat || (wrapper && wrapper.querySelector('.user-message.editing') === null)) {
+                    if (!isInChat) {
+                        saveDraftAndExit();
+                    } else if (wrapper && !wrapper.querySelector('.user-message.editing')) {
+                        saveDraftAndExit();
+                    }
                 }
             }
         });
 
-        // 按 ESC 键退出编辑（不保存）
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && editingUserIndex >= 0) {
                 editingUserIndex = -1;
@@ -1701,7 +1689,6 @@
             document.body.style.overflow = 'hidden';
             newChatBtn.style.pointerEvents = 'none';
             newChatBtn.style.cursor = 'default';
-            // 退出编辑
             if (editingUserIndex >= 0) saveDraftAndExit();
             setTimeout(() => {
                 searchInput.focus();
@@ -2011,15 +1998,14 @@
                 alert('正在生成中，请稍候');
                 return;
             }
-            // 如果有编辑中的用户消息，退出编辑
             if (editingUserIndex >= 0) saveDraftAndExit();
             resetChat();
             renderHistory();
         });
 
-        // 深度思考复选框事件
-        deepThinkCheckbox.addEventListener('change', function() {
-            deepThinkingEnabled = this.checked;
+        deepThinkToggle.addEventListener('click', function() {
+            deepThinkingEnabled = !deepThinkingEnabled;
+            this.classList.toggle('active');
         });
 
         // ============================================================
