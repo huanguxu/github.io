@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>FENG'S DS</title>
     <style>
+        /* === 所有样式保持不变，只增加了调试相关，无影响 === */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -72,8 +73,8 @@
             border-radius: 18px;
             word-wrap: break-word;
             width: 100%;
-            white-space: pre-wrap;   /* 保留换行，实现分段 */
-            line-height: 1.6;        /* 增加行距，更舒适 */
+            white-space: pre-wrap;
+            line-height: 1.6;
         }
         .user-message {
             background: #ffebee;
@@ -282,6 +283,7 @@
             border: none;
             background: none;
             padding: 0;
+            pointer-events: auto; /* 确保可点击 */
         }
         #menu-btn {
             left: 20px;
@@ -744,17 +746,17 @@
         .context-menu button:hover svg {
             color: #f48fb1;
         }
-        /* 置顶图标倾斜，与重命名铅笔风格一致 */
+        /* 置顶图标倾斜 */
         #menu-pin svg {
             transform: rotate(30deg);
             display: inline-block;
         }
-        /* 删除按钮红色，并添加双线分隔 */
+        /* 删除按钮红色 + 双线分隔 */
         .context-menu .danger {
             color: #d32f2f;
-            border-top: 2px double #ddd;   /* 双线分隔 */
-            padding-top: 12px;             /* 增加上方内边距 */
-            margin-top: 4px;               /* 可选外部间距 */
+            border-top: 2px double #ddd;
+            padding-top: 12px;
+            margin-top: 4px;
         }
         .context-menu .danger svg {
             color: #d32f2f;
@@ -978,7 +980,7 @@
         </div>
     </div>
 
-    <!-- ===== 修改后的上下文菜单（SVG图标） ===== -->
+    <!-- ===== 上下文菜单 ===== -->
     <div class="context-menu" id="context-menu">
         <button id="menu-rename">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -1328,29 +1330,19 @@
             }
         }
 
-        // ★★★★★ 修正后的 autoResize：严格判断是否超过一行 ★★★★★
         function autoResize(textarea) {
             const computed = window.getComputedStyle(textarea);
             const minHeight = parseFloat(computed.minHeight) || 40;
             const maxHeight = parseFloat(computed.maxHeight) || 150;
-
-            // 先强制重置为 minHeight
             textarea.style.height = minHeight + 'px';
-
-            // 如果内容为空或只有空白，直接保持 minHeight
             if (!textarea.value || textarea.value.trim() === '') {
                 return;
             }
-
-            // 重新获取 scrollHeight（此时高度为 minHeight）
             const scrollHeight = textarea.scrollHeight;
-
-            // 只有当 scrollHeight 明显大于 minHeight（加2px容差）时才拉高
             if (scrollHeight > minHeight + 2) {
                 const target = Math.min(scrollHeight, maxHeight);
                 textarea.style.height = target + 'px';
             }
-            // 否则保持 minHeight（已设置）
         }
 
         // ============================================================
@@ -1842,6 +1834,7 @@
         // 11. 侧滑栏开关
         // ============================================================
         function openSidebar() {
+            console.log('openSidebar called'); // 调试日志
             sidebar.classList.add('open');
             overlay.classList.add('active');
             document.body.style.overflow = 'hidden';
@@ -1854,6 +1847,7 @@
         }
 
         function closeSidebar() {
+            console.log('closeSidebar called'); // 调试日志
             sidebar.classList.remove('open');
             overlay.classList.remove('active');
             document.body.style.overflow = '';
@@ -1861,13 +1855,17 @@
             newChatBtn.style.cursor = '';
             hideContextMenu();
         }
-        menuBtn.addEventListener('click', () => {
+
+        // 确保按钮事件绑定
+        menuBtn.addEventListener('click', function(e) {
+            console.log('menuBtn clicked'); // 调试日志
             if (sidebar.classList.contains('open')) {
                 closeSidebar();
             } else {
                 openSidebar();
             }
         });
+
         overlay.addEventListener('click', closeSidebar);
 
         // ============================================================
