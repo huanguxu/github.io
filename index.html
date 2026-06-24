@@ -1308,25 +1308,91 @@
             }
         }
 
-        async function regenerateAIMessage(index) {
-            if (isGenerating) {
-                alert('正在生成中，请稍候');
-                return;
-            }
-            if (index < 0 || index >= messages.length || messages[index].type !== 'ai') return;
+/**
+ * 重新生成 AI 消息（保留历史版本）
+ * @param {number} index - 要重新生成的 AI 消息在 messages 数组中的索引
+ */
+async function regenerateAIMessage(index) {
+    // 防止重复点击
+    if (isGenerating) {
+        alert('正在生成中，请稍候');
+        return;
+    }
+    // 检查索引有效性
+    if (index < 0 || index >= messages.length || messages[index].type !== 'ai') return;
 
-            let userIndex = -1;
-            for (let i = index - 1; i >= 0; i--) {
-                if (messages[i].type === 'user') {
-                    userIndex = i;
-                    break;
-                }
-            }
-            if (userIndex === -1) {
-                alert('无法找到对应的用户消息');
-                return;
-            }
+    // 查找对应的用户消息（位于该 AI 消息之前）
+    let userIndex = -1;
+    for (let i = index - 1; i >= 0; i--) {
+        if (messages[i].type === 'user') {
+            userIndex = i;
+            break;
+        }
+    }
+    if (userIndex === -1) {
+        alert('无法找到对应的用户消息');
+        return;
+    }
+    const userText = messages[userIndex].text;
 
+    // 获取当前 AI 消息对象
+    const aiMsg = messages[index];
+
+    // 确保该 AI 消息有 versions 数组和 currentVersion 字段
+    if (!aiMsg.versions) {
+        aiMsg.versions = [aiMsg.text];
+        aiMsg.currentVersion = 0;
+    }
+
+    // 添加新版本占位（'...' 表示正在生成）
+    aiMsg.versions.push('...');
+    // 将 currentVersion 指向最新版本（刚添加的占位）
+    aiMsg.currentVersion = aiMsg.versions.length - 1;
+    // 临时显示占位文本
+    aiMsg.text = '...';
+
+    // 删除该 AI 消息之后的所有消息（保留该 AI 消息及其之前的内容）
+    messages = messages.slice(0, index + 1);
+
+    // 重新渲染界面
+    renderMessages();
+    statusMsg.textContent = '重新生成中...';
+    sendBtn.disabled = true;
+    isGenerating = true;
+
+    try {
+        // 调用 API 生成新回复（传入当前 AI 之前的所有历史消息）
+        const history = messages.slice(0, -1); // 不包含占位 AI
+        const fullReply = await generateAIResponse(history, (chunk) => {
+            // 流式更新：实时更新占位版本
+            const lastIdx = aiMsg.versions.length - 1;
+            aiMsg.versions[lastIdx] = chunk;
+            aiMsg.text = chunk;
+            renderMessages();
+        });
+
+        // 最终确定版本内容
+        const lastIdx = aiMsg.versions.length - 1;
+        aiMsg.versions[lastIdx] = fullReply || '（AI没有返回内容）';
+        aiMsg.text = fullReply || '（AI没有返回内容）';
+
+        // 保存会话到 localStorage
+        saveCurrentSession();
+        statusMsg.textContent = '';
+    } catch (error) {
+        console.error(error);
+        // 发生错误时，将版本内容标记为错误信息
+        const lastIdx = aiMsg.versions.length - 1;
+        aiMsg.versions[lastIdx] = `❌ ${error.message || '未知错误'}`;
+        aiMsg.text = `❌ ${error.message || '未知错误'}`;
+        statusMsg.textContent = '重新生成失败，请检查网络或设置';
+    } finally {
+        isGenerating = false;
+        sendBtn.disabled = false;
+        renderMessages();
+        // 不自动聚焦输入框
+    }
+}
             messages = messages.slice(0, index);
             const aiMsg = { type: 'ai', text: '...', versions: ['...'], currentVersion: 0 };
             messages.push(aiMsg);
