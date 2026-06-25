@@ -415,7 +415,7 @@
             background: #f9f9f9;
             border-radius: 10px;
             padding: 10px 12px;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
             cursor: pointer;
             transition: background 0.2s;
             border-left: 3px solid #f8bbd0;
@@ -885,7 +885,7 @@
             }
             .history-item {
                 padding: 6px 10px;
-                margin-bottom: 10px;
+                margin-bottom: 8px;
             }
         }
     </style>
@@ -1104,6 +1104,8 @@
             messages = JSON.parse(JSON.stringify(session.messages));
             currentSessionId = sessionId;
             renderMessages();
+            // 加载历史记录时滚动到底部，方便查看最新消息
+            chatBox.scrollTop = chatBox.scrollHeight;
             userInput.value = '';
             autoResize(userInput);
             statusMsg.textContent = '';
@@ -1248,6 +1250,11 @@
                 userInput.value = '';
                 autoResize(userInput);
                 renderMessages();
+                // 滚动到最新 AI 消息顶部
+                const lastWrapper = chatBox.lastElementChild;
+                if (lastWrapper) {
+                    lastWrapper.scrollIntoView({ block: 'start' });
+                }
                 statusMsg.textContent = '重新生成中...';
                 sendBtn.disabled = true;
                 isGenerating = true;
@@ -1431,7 +1438,8 @@
 
                 chatBox.appendChild(wrapper);
             });
-            chatBox.scrollTop = chatBox.scrollHeight;
+            // ★★★ 不再自动滚动到底部 ★★★
+            // 滚动行为由调用方控制（发送/重新生成时滚动到AI消息顶部）
         }
 
         function cycleVersion(index) {
@@ -1600,6 +1608,11 @@
             const aiMsg = { type: 'ai', text: '...', versions: [{ text: '...', cumulativeTokens: 0 }], currentVersion: 0 };
             messages.push(aiMsg);
             renderMessages();
+            // 滚动到最新 AI 消息顶部
+            const lastWrapper = chatBox.lastElementChild;
+            if (lastWrapper) {
+                lastWrapper.scrollIntoView({ block: 'start' });
+            }
             userInput.value = '';
             autoResize(userInput);
             statusMsg.textContent = 'DeepSeek 正在思考...';
@@ -1674,6 +1687,11 @@
             messages = messages.slice(0, index + 1);
 
             renderMessages();
+            // 滚动到最新 AI 消息顶部
+            const lastWrapper = chatBox.lastElementChild;
+            if (lastWrapper) {
+                lastWrapper.scrollIntoView({ block: 'start' });
+            }
             statusMsg.textContent = '重新生成中...';
             sendBtn.disabled = true;
             isGenerating = true;
