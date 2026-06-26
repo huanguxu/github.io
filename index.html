@@ -1446,7 +1446,7 @@ ${compressText}`;
         }
 
         // ============================================================
-        // 8. API 调用
+        // 8. API 调用（已优化长度控制）
         // ============================================================
         function getApiKey() {
             return localStorage.getItem(STORAGE_KEYS.apiKey) || '';
@@ -1478,7 +1478,8 @@ ${compressText}`;
                 historyToSend = historyMessages.slice(-100);
             }
 
-            const systemContent = 'You are a highly intelligent assistant that remembers the full conversation context. Always refer back to previous exchanges to provide coherent and accurate responses.';
+            // 系统提示词：强化长度控制
+            const systemContent = `你是一个高度智能的助手，始终记得完整的对话上下文，并参考之前的交流以提供连贯准确的回复。请特别注意用户提到的任何长度限制（如“大约200字”、“不超过300字”等），并严格遵守。如果用户指定了字数范围，你的回复必须控制在该范围内。不要生成过长的回复，要简洁明了。`;
 
             const apiMessages = [
                 { role: 'system', content: systemContent }
