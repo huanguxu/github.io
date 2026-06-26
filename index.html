@@ -1387,40 +1387,31 @@
             let thinking = '';
             let answer = fullReply;
 
-            // 尝试查找思考过程和最终答案
             let thinkIndex = fullReply.indexOf(thinkMarker);
             let answerIndex = fullReply.indexOf(answerMarker);
 
             if (thinkIndex !== -1 && answerIndex !== -1) {
-                // 两个都有
-                // 确保思考在答案之前
                 if (thinkIndex < answerIndex) {
                     thinking = fullReply.substring(thinkIndex + thinkMarker.length, answerIndex).trim();
                     answer = fullReply.substring(answerIndex + answerMarker.length).trim();
                 } else {
-                    // 顺序颠倒，尝试分别提取
                     thinking = fullReply.substring(thinkIndex + thinkMarker.length).trim();
                     answer = fullReply.substring(0, thinkIndex).trim();
-                    // 如果答案部分包含“最终答案：”标记，移除它
                     if (answer.startsWith(answerMarker)) {
                         answer = answer.substring(answerMarker.length).trim();
                     }
                 }
             } else if (thinkIndex !== -1) {
-                // 只有思考标记
                 thinking = fullReply.substring(thinkIndex + thinkMarker.length).trim();
                 answer = '';
             } else if (answerIndex !== -1) {
-                // 只有答案标记
                 thinking = '';
                 answer = fullReply.substring(answerIndex + answerMarker.length).trim();
             } else {
-                // 没有标记
                 thinking = '';
                 answer = fullReply;
             }
 
-            // 如果思考为空，但答案为空（即只有思考部分），我们将思考作为答案
             if (thinking && !answer) {
                 answer = thinking;
                 thinking = '';
@@ -1430,38 +1421,46 @@
         }
 
         // ============================================================
-        // 7. 压缩对话（生成摘要）
+        // 7. 压缩对话（生成摘要）- 优化版
         // ============================================================
         async function compressConversation() {
-            if (messages.length <= 100) return;
+            // 当消息总数超过 60 条时触发压缩，保留最近 20 条
+            const COMPRESS_THRESHOLD = 60;
+            const KEEP_RECENT = 20;
+            if (messages.length <= COMPRESS_THRESHOLD) return;
             if (isGenerating) {
                 alert('正在生成中，请稍候');
                 return;
             }
-            // 保留最近20条消息
-            const keepCount = 20;
-            const toCompress = messages.slice(0, messages.length - keepCount);
-            const recent = messages.slice(messages.length - keepCount);
+
+            const toCompress = messages.slice(0, messages.length - KEEP_RECENT);
+            const recent = messages.slice(messages.length - KEEP_RECENT);
             if (toCompress.length === 0) return;
 
-            // 构建摘要请求
+            // 构建摘要请求 - 更详细的提示词，确保保留关键信息
             const compressText = toCompress.map(m => (m.type === 'user' ? '用户：' : '助手：') + m.text).join('\n');
-            const summaryPrompt = `请为以下对话生成一个简洁的摘要，以便后续对话能够参考。摘要应涵盖对话的主要话题和关键信息。\n\n${compressText}`;
+            const summaryPrompt = `请为以下对话生成一个简洁但全面的摘要，用于后续对话的参考。摘要需要涵盖：
+1. 对话的主要话题和核心问题
+2. 讨论的关键结论和重要信息
+3. 任何重要的细节、数据或决策
 
-            statusMsg.textContent = '正在生成摘要...';
+请用清晰的中文段落输出摘要，不要使用列表或序号。
+
+对话内容：
+${compressText}`;
+
+            statusMsg.textContent = '正在压缩对话以节省Token...';
             try {
-                // 临时设置深度思考为false，避免摘要也带思考过程
                 const origDeep = deepThinkingEnabled;
                 deepThinkingEnabled = false;
                 const summary = await generateAIResponse([{ type: 'user', text: summaryPrompt }], null);
                 deepThinkingEnabled = origDeep;
 
-                // 用摘要替换前部消息
                 const summaryMsg = { type: 'system', text: `【对话摘要】\n${summary}` };
                 messages = [summaryMsg, ...recent];
                 renderMessages();
                 saveCurrentSession();
-                statusMsg.textContent = '对话已压缩，摘要已生成。';
+                statusMsg.textContent = `对话已压缩，保留了最近 ${KEEP_RECENT} 条详细记录。`;
             } catch (error) {
                 console.error('压缩失败', error);
                 statusMsg.textContent = '压缩失败，请检查网络或设置';
@@ -1488,9 +1487,7 @@
                     bubble.classList.add('welcome-message');
                 }
 
-                // 处理AI消息的思考区域
                 if (msg.type === 'ai' && msg.thinking) {
-                    // 构建思考容器
                     const thinkContainer = document.createElement('div');
                     thinkContainer.className = 'thinking-container';
 
@@ -1507,7 +1504,6 @@
                     thinkContainer.appendChild(toggleBtn);
                     thinkContainer.appendChild(contentDiv);
 
-                    // 答案文本
                     const answerDiv = document.createElement('div');
                     answerDiv.textContent = msg.text;
                     answerDiv.style.whiteSpace = 'pre-wrap';
@@ -1579,7 +1575,6 @@
 
                 chatBox.appendChild(wrapper);
             });
-            // 不再自动滚动
         }
 
         function cycleVersion(index) {
@@ -1596,13 +1591,12 @@
             const versionData = msg.versions[cur];
             msg.text = versionData.text;
             msg.cumulativeTokens = versionData.cumulativeTokens;
-            // 如果存在思考，版本切换时清空思考（简化处理）
             msg.thinking = undefined;
             renderMessages();
         }
 
         // ============================================================
-        // 9. API 调用（支持深度思考格式要求 - 已强化提示词）
+        // 9. API 调用（支持深度思考格式要求）
         // ============================================================
         function getApiKey() {
             return localStorage.getItem(STORAGE_KEYS.apiKey) || '';
@@ -1631,6 +1625,7 @@
             const strategy = getMemoryStrategy();
             let historyToSend = historyMessages;
             if (strategy === 'compress' && historyMessages.length > 100) {
+                // 安全截断，但通常压缩后不会超过100
                 historyToSend = historyMessages.slice(-100);
             }
 
@@ -1648,7 +1643,7 @@
                 } else if (msg.type === 'ai') {
                     apiMessages.push({ role: 'assistant', content: msg.text });
                 } else if (msg.type === 'system') {
-                    // 系统消息也加入（摘要）
+                    // 系统消息（摘要）也加入
                     apiMessages.push({ role: 'system', content: msg.text });
                 }
             });
@@ -1728,8 +1723,8 @@
         }
 
         async function sendMessage() {
-            // 自动压缩检查（若策略为compress且消息数>100）
-            if (getMemoryStrategy() === 'compress' && messages.length > 100) {
+            // 如果策略为compress且消息数>60，自动压缩
+            if (getMemoryStrategy() === 'compress' && messages.length > 60) {
                 await compressConversation();
             }
 
@@ -1839,7 +1834,7 @@
             aiMsg.versions.push({ text: '...', cumulativeTokens: 0 });
             aiMsg.currentVersion = aiMsg.versions.length - 1;
             aiMsg.text = '...';
-            aiMsg.thinking = undefined; // 清空旧思考
+            aiMsg.thinking = undefined;
 
             messages = messages.slice(0, index + 1);
 
@@ -1990,7 +1985,6 @@
             const showToken = showTokenCheckbox.checked;
             const memoryStrategy = memoryStrategySelect.value;
 
-            // 检查策略是否变为 compress 且消息数>100
             const oldStrategy = localStorage.getItem(STORAGE_KEYS.memoryStrategy) || 'no-compress';
             localStorage.setItem(STORAGE_KEYS.apiKey, apiKey);
             localStorage.setItem(STORAGE_KEYS.model, model);
@@ -2004,7 +1998,7 @@
             alert('设置已保存！');
 
             // 如果切换为压缩策略且当前消息较多，执行压缩
-            if (memoryStrategy === 'compress' && oldStrategy !== 'compress' && messages.length > 100) {
+            if (memoryStrategy === 'compress' && oldStrategy !== 'compress' && messages.length > 60) {
                 await compressConversation();
             }
 
