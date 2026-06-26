@@ -144,39 +144,6 @@
             cursor: default;
         }
 
-        /* 深度思考样式 */
-        .thinking-container {
-            margin-bottom: 8px;
-            background: #f5f5f5;
-            border-radius: 12px;
-            padding: 6px 10px;
-            border-left: 3px solid #f8bbd0;
-        }
-        .thinking-toggle {
-            background: none;
-            border: none;
-            color: #888;
-            font-size: 13px;
-            cursor: pointer;
-            padding: 2px 0;
-            font-weight: 500;
-            font-family: inherit;
-        }
-        .thinking-toggle:hover {
-            color: #f8bbd0;
-        }
-        .thinking-content {
-            margin-top: 6px;
-            font-size: 14px;
-            color: #555;
-            white-space: pre-wrap;
-            line-height: 1.5;
-            display: none;
-        }
-        .thinking-content.visible {
-            display: block;
-        }
-
         /* ===== 输入区域 ===== */
         .input-area {
             display: flex;
@@ -184,34 +151,6 @@
             gap: 6px;
             margin-top: 12px;
             flex-shrink: 0;
-        }
-        .input-controls {
-            display: flex;
-            justify-content: flex-start;
-            padding: 0 4px;
-        }
-        .deep-think-toggle {
-            background: transparent;
-            border: 1px solid #f8bbd0;
-            border-radius: 50px;
-            padding: 2px 10px;
-            font-size: 12px;
-            font-weight: 500;
-            color: #888;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-family: inherit;
-            display: inline-block;
-            background: transparent;
-            user-select: none;
-        }
-        .deep-think-toggle:hover {
-            background: rgba(248, 187, 208, 0.05);
-        }
-        .deep-think-toggle.active {
-            color: #f8bbd0;
-            border-color: #f8bbd0;
-            background: rgba(248, 187, 208, 0.1);
         }
         .input-row {
             display: flex;
@@ -880,10 +819,6 @@
                 padding: 6px 18px;
                 font-size: 15px;
             }
-            .deep-think-toggle {
-                font-size: 12px;
-                padding: 2px 10px;
-            }
             .edit-indicator {
                 font-size: 11px;
                 top: -8px;
@@ -922,9 +857,6 @@
         <h1>FENG'S DS</h1>
         <div id="chat-box"></div>
         <div class="input-area">
-            <div class="input-controls">
-                <button class="deep-think-toggle" id="deep-think-toggle">深度思考</button>
-            </div>
             <div class="input-row">
                 <textarea id="user-input" placeholder="输入你的问题..."></textarea>
                 <span class="edit-indicator" id="edit-indicator">✎ 编辑中</span>
@@ -1048,7 +980,6 @@
         const settingsBtn = document.getElementById('settings-btn');
         const searchInput = document.getElementById('search-input');
         const searchBtn = document.getElementById('search-btn');
-        const deepThinkToggle = document.getElementById('deep-think-toggle');
         const editIndicator = document.getElementById('edit-indicator');
 
         const settingsOverlay = document.getElementById('settings-overlay');
@@ -1072,7 +1003,6 @@
         let showTokenStats = true;
         let currentSessionId = null;
         let searchKeyword = '';
-        let deepThinkingEnabled = false;
 
         let editingUserIndex = -1;
         let editingDraft = '';
@@ -1298,16 +1228,8 @@
                         });
                         const lastMsg = messages[messages.length - 1];
                         if (lastMsg.type === 'ai') {
-                            // 深度思考解析
-                            if (deepThinkingEnabled) {
-                                const parsed = parseThinkingAnswer(fullReply);
-                                lastMsg.thinking = parsed.thinking;
-                                lastMsg.text = parsed.answer;
-                                lastMsg.versions[0].text = parsed.answer;
-                            } else {
-                                lastMsg.text = fullReply || '（AI没有返回内容）';
-                                lastMsg.versions[0].text = lastMsg.text;
-                            }
+                            lastMsg.text = fullReply || '（AI没有返回内容）';
+                            lastMsg.versions[0].text = lastMsg.text;
                             lastMsg.currentVersion = 0;
                             const cumulative = calculateTotalTokens();
                             lastMsg.versions[0].cumulativeTokens = cumulative;
@@ -1379,54 +1301,12 @@
         }
 
         // ============================================================
-        // 6. 深度思考解析辅助（已优化）
-        // ============================================================
-        function parseThinkingAnswer(fullReply) {
-            const thinkMarker = '思考过程：';
-            const answerMarker = '最终答案：';
-            let thinking = '';
-            let answer = fullReply;
-
-            let thinkIndex = fullReply.indexOf(thinkMarker);
-            let answerIndex = fullReply.indexOf(answerMarker);
-
-            if (thinkIndex !== -1 && answerIndex !== -1) {
-                if (thinkIndex < answerIndex) {
-                    thinking = fullReply.substring(thinkIndex + thinkMarker.length, answerIndex).trim();
-                    answer = fullReply.substring(answerIndex + answerMarker.length).trim();
-                } else {
-                    thinking = fullReply.substring(thinkIndex + thinkMarker.length).trim();
-                    answer = fullReply.substring(0, thinkIndex).trim();
-                    if (answer.startsWith(answerMarker)) {
-                        answer = answer.substring(answerMarker.length).trim();
-                    }
-                }
-            } else if (thinkIndex !== -1) {
-                thinking = fullReply.substring(thinkIndex + thinkMarker.length).trim();
-                answer = '';
-            } else if (answerIndex !== -1) {
-                thinking = '';
-                answer = fullReply.substring(answerIndex + answerMarker.length).trim();
-            } else {
-                thinking = '';
-                answer = fullReply;
-            }
-
-            if (thinking && !answer) {
-                answer = thinking;
-                thinking = '';
-            }
-
-            return { thinking, answer };
-        }
-
-        // ============================================================
-        // 7. 压缩对话（生成摘要）- 优化版
+        // 6. 压缩对话（生成摘要）- 优化记忆强度
         // ============================================================
         async function compressConversation() {
-            // 当消息总数超过 60 条时触发压缩，保留最近 20 条
-            const COMPRESS_THRESHOLD = 60;
-            const KEEP_RECENT = 20;
+            // 当消息总数超过 80 条时触发压缩，保留最近 30 条
+            const COMPRESS_THRESHOLD = 80;
+            const KEEP_RECENT = 30;
             if (messages.length <= COMPRESS_THRESHOLD) return;
             if (isGenerating) {
                 alert('正在生成中，请稍候');
@@ -1437,30 +1317,28 @@
             const recent = messages.slice(messages.length - KEEP_RECENT);
             if (toCompress.length === 0) return;
 
-            // 构建摘要请求 - 更详细的提示词，确保保留关键信息
+            // 构建摘要请求 - 更详细的提示词以增强记忆
             const compressText = toCompress.map(m => (m.type === 'user' ? '用户：' : '助手：') + m.text).join('\n');
-            const summaryPrompt = `请为以下对话生成一个简洁但全面的摘要，用于后续对话的参考。摘要需要涵盖：
-1. 对话的主要话题和核心问题
-2. 讨论的关键结论和重要信息
-3. 任何重要的细节、数据或决策
+            const summaryPrompt = `请为以下对话生成一个全面且结构清晰的摘要，用于后续对话的长期参考。摘要必须涵盖：
+1. 对话的核心议题和主要问题
+2. 所有关键结论、决策及理由
+3. 重要的数据、事实和细节
+4. 任何涉及的多轮讨论脉络
 
-请用清晰的中文段落输出摘要，不要使用列表或序号。
+请用流畅的段落输出，确保信息密度高，便于快速回顾。
 
 对话内容：
 ${compressText}`;
 
-            statusMsg.textContent = '正在压缩对话以节省Token...';
+            statusMsg.textContent = '正在压缩对话以增强记忆...';
             try {
-                const origDeep = deepThinkingEnabled;
-                deepThinkingEnabled = false;
+                // 临时关闭深度思考（已删除）
                 const summary = await generateAIResponse([{ type: 'user', text: summaryPrompt }], null);
-                deepThinkingEnabled = origDeep;
-
                 const summaryMsg = { type: 'system', text: `【对话摘要】\n${summary}` };
                 messages = [summaryMsg, ...recent];
                 renderMessages();
                 saveCurrentSession();
-                statusMsg.textContent = `对话已压缩，保留了最近 ${KEEP_RECENT} 条详细记录。`;
+                statusMsg.textContent = `对话已压缩，保留了最近 ${KEEP_RECENT} 条详细记录，记忆已强化。`;
             } catch (error) {
                 console.error('压缩失败', error);
                 statusMsg.textContent = '压缩失败，请检查网络或设置';
@@ -1468,7 +1346,7 @@ ${compressText}`;
         }
 
         // ============================================================
-        // 8. 聊天渲染（支持深度思考折叠）
+        // 7. 聊天渲染
         // ============================================================
         function renderMessages() {
             chatBox.innerHTML = '';
@@ -1486,34 +1364,7 @@ ${compressText}`;
                 if (msg.type === 'ai' && index === 0 && msg.text === WELCOME_TEXT) {
                     bubble.classList.add('welcome-message');
                 }
-
-                if (msg.type === 'ai' && msg.thinking) {
-                    const thinkContainer = document.createElement('div');
-                    thinkContainer.className = 'thinking-container';
-
-                    const toggleBtn = document.createElement('button');
-                    toggleBtn.className = 'thinking-toggle';
-                    toggleBtn.textContent = '展开思考过程';
-                    const contentDiv = document.createElement('div');
-                    contentDiv.className = 'thinking-content';
-                    contentDiv.textContent = msg.thinking;
-                    toggleBtn.addEventListener('click', function() {
-                        const isHidden = contentDiv.classList.toggle('visible');
-                        toggleBtn.textContent = isHidden ? '收起思考过程' : '展开思考过程';
-                    });
-                    thinkContainer.appendChild(toggleBtn);
-                    thinkContainer.appendChild(contentDiv);
-
-                    const answerDiv = document.createElement('div');
-                    answerDiv.textContent = msg.text;
-                    answerDiv.style.whiteSpace = 'pre-wrap';
-
-                    bubble.appendChild(thinkContainer);
-                    bubble.appendChild(answerDiv);
-                } else {
-                    bubble.textContent = msg.text;
-                }
-
+                bubble.textContent = msg.text;
                 bubble.dataset.index = index;
                 wrapper.appendChild(bubble);
 
@@ -1591,12 +1442,11 @@ ${compressText}`;
             const versionData = msg.versions[cur];
             msg.text = versionData.text;
             msg.cumulativeTokens = versionData.cumulativeTokens;
-            msg.thinking = undefined;
             renderMessages();
         }
 
         // ============================================================
-        // 9. API 调用（支持深度思考格式要求）
+        // 8. API 调用
         // ============================================================
         function getApiKey() {
             return localStorage.getItem(STORAGE_KEYS.apiKey) || '';
@@ -1625,14 +1475,10 @@ ${compressText}`;
             const strategy = getMemoryStrategy();
             let historyToSend = historyMessages;
             if (strategy === 'compress' && historyMessages.length > 100) {
-                // 安全截断，但通常压缩后不会超过100
                 historyToSend = historyMessages.slice(-100);
             }
 
-            let systemContent = 'You are a highly intelligent assistant that remembers the full conversation context. Always refer back to previous exchanges to provide coherent and accurate responses.';
-            if (deepThinkingEnabled) {
-                systemContent += ' Please provide your reasoning process step by step before giving the final answer. You MUST follow this format exactly:\n\n思考过程：\n[Your reasoning here]\n\n最终答案：\n[Your final answer]\n\nMake sure to include both sections with the exact headers "思考过程：" and "最终答案：" in Chinese.';
-            }
+            const systemContent = 'You are a highly intelligent assistant that remembers the full conversation context. Always refer back to previous exchanges to provide coherent and accurate responses.';
 
             const apiMessages = [
                 { role: 'system', content: systemContent }
@@ -1643,7 +1489,6 @@ ${compressText}`;
                 } else if (msg.type === 'ai') {
                     apiMessages.push({ role: 'assistant', content: msg.text });
                 } else if (msg.type === 'system') {
-                    // 系统消息（摘要）也加入
                     apiMessages.push({ role: 'system', content: msg.text });
                 }
             });
@@ -1706,7 +1551,7 @@ ${compressText}`;
         }
 
         // ============================================================
-        // 10. 核心操作（发送、重新生成）
+        // 9. 核心操作
         // ============================================================
 
         function resetChat() {
@@ -1723,8 +1568,8 @@ ${compressText}`;
         }
 
         async function sendMessage() {
-            // 如果策略为compress且消息数>60，自动压缩
-            if (getMemoryStrategy() === 'compress' && messages.length > 60) {
+            // 如果策略为compress且消息数>80，自动压缩
+            if (getMemoryStrategy() === 'compress' && messages.length > 80) {
                 await compressConversation();
             }
 
@@ -1775,15 +1620,8 @@ ${compressText}`;
                 });
                 const lastMsg = messages[messages.length - 1];
                 if (lastMsg.type === 'ai') {
-                    if (deepThinkingEnabled) {
-                        const parsed = parseThinkingAnswer(fullReply);
-                        lastMsg.thinking = parsed.thinking;
-                        lastMsg.text = parsed.answer;
-                        lastMsg.versions[0].text = parsed.answer;
-                    } else {
-                        lastMsg.text = fullReply || '（AI没有返回内容）';
-                        lastMsg.versions[0].text = lastMsg.text;
-                    }
+                    lastMsg.text = fullReply || '（AI没有返回内容）';
+                    lastMsg.versions[0].text = lastMsg.text;
                     lastMsg.currentVersion = 0;
                     const cumulative = calculateTotalTokens();
                     lastMsg.versions[0].cumulativeTokens = cumulative;
@@ -1834,7 +1672,6 @@ ${compressText}`;
             aiMsg.versions.push({ text: '...', cumulativeTokens: 0 });
             aiMsg.currentVersion = aiMsg.versions.length - 1;
             aiMsg.text = '...';
-            aiMsg.thinking = undefined;
 
             messages = messages.slice(0, index + 1);
 
@@ -1857,15 +1694,8 @@ ${compressText}`;
                 });
 
                 const lastIdx = aiMsg.versions.length - 1;
-                if (deepThinkingEnabled) {
-                    const parsed = parseThinkingAnswer(fullReply);
-                    aiMsg.thinking = parsed.thinking;
-                    aiMsg.text = parsed.answer;
-                    aiMsg.versions[lastIdx].text = parsed.answer;
-                } else {
-                    aiMsg.text = fullReply || '（AI没有返回内容）';
-                    aiMsg.versions[lastIdx].text = aiMsg.text;
-                }
+                aiMsg.text = fullReply || '（AI没有返回内容）';
+                aiMsg.versions[lastIdx].text = aiMsg.text;
 
                 const cumulative = calculateTotalTokens();
                 aiMsg.versions[lastIdx].cumulativeTokens = cumulative;
@@ -1890,7 +1720,7 @@ ${compressText}`;
         }
 
         // ============================================================
-        // 11. 事件绑定
+        // 10. 事件绑定
         // ============================================================
         chatBox.addEventListener('pointerdown', function(e) {
             if (e.target.tagName === 'TEXTAREA') return;
@@ -1949,7 +1779,7 @@ ${compressText}`;
         });
 
         // ============================================================
-        // 12. 设置管理（保存时触发压缩）
+        // 11. 设置管理（保存时触发压缩）
         // ============================================================
         function loadSettings() {
             const savedApiKey = localStorage.getItem(STORAGE_KEYS.apiKey) || '';
@@ -1998,7 +1828,7 @@ ${compressText}`;
             alert('设置已保存！');
 
             // 如果切换为压缩策略且当前消息较多，执行压缩
-            if (memoryStrategy === 'compress' && oldStrategy !== 'compress' && messages.length > 60) {
+            if (memoryStrategy === 'compress' && oldStrategy !== 'compress' && messages.length > 80) {
                 await compressConversation();
             }
 
@@ -2019,7 +1849,7 @@ ${compressText}`;
         }
 
         // ============================================================
-        // 13. 侧滑栏开关
+        // 12. 侧滑栏开关
         // ============================================================
         function openSidebar() {
             sidebar.classList.add('open');
@@ -2051,7 +1881,7 @@ ${compressText}`;
         overlay.addEventListener('click', closeSidebar);
 
         // ============================================================
-        // 14. 设置按钮事件
+        // 13. 设置按钮事件
         // ============================================================
         settingsBtn.addEventListener('click', openSettings);
         settingsSave.addEventListener('click', saveSettings);
@@ -2108,7 +1938,7 @@ ${compressText}`;
         });
 
         // ============================================================
-        // 15. 搜索功能
+        // 14. 搜索功能
         // ============================================================
         function performSearch() {
             searchKeyword = searchInput.value.trim().toLowerCase();
@@ -2119,7 +1949,7 @@ ${compressText}`;
         searchBtn.addEventListener('click', performSearch);
 
         // ============================================================
-        // 16. 历史记录渲染
+        // 15. 历史记录渲染
         // ============================================================
         function renderHistory() {
             const sessions = getSessions();
@@ -2333,7 +2163,7 @@ ${compressText}`;
         });
 
         // ============================================================
-        // 17. 发送和新建
+        // 16. 发送和新建
         // ============================================================
         sendBtn.addEventListener('click', sendMessage);
         userInput.addEventListener('keydown', (e) => {
@@ -2356,13 +2186,8 @@ ${compressText}`;
             renderHistory();
         });
 
-        deepThinkToggle.addEventListener('click', function() {
-            deepThinkingEnabled = !deepThinkingEnabled;
-            this.classList.toggle('active');
-        });
-
         // ============================================================
-        // 18. 初始化
+        // 17. 初始化
         // ============================================================
         function init() {
             loadSettings();
