@@ -1301,7 +1301,7 @@
         }
 
         // ============================================================
-        // 6. 压缩对话（生成摘要）- 已修改提示文字
+        // 6. 压缩对话（生成摘要）- 已重构，不再自行渲染和保存
         // ============================================================
         async function compressConversation() {
             // 当消息总数超过 80 条时触发压缩，保留最近 30 条
@@ -1317,7 +1317,7 @@
             const recent = messages.slice(messages.length - KEEP_RECENT);
             if (toCompress.length === 0) return;
 
-            // 构建摘要请求 - 更详细的提示词以增强记忆
+            // 构建摘要请求
             const compressText = toCompress.map(m => (m.type === 'user' ? '用户：' : '助手：') + m.text).join('\n');
             const summaryPrompt = `请为以下对话生成一个全面且结构清晰的摘要，用于后续对话的长期参考。摘要必须涵盖：
 1. 对话的核心议题和主要问题
@@ -1335,12 +1335,11 @@ ${compressText}`;
                 const summary = await generateAIResponse([{ type: 'user', text: summaryPrompt }], null);
                 const summaryMsg = { type: 'system', text: `【对话摘要】\n${summary}` };
                 messages = [summaryMsg, ...recent];
-                renderMessages();
-                saveCurrentSession();
                 statusMsg.textContent = `✅ 对话已压缩，保留了最近 ${KEEP_RECENT} 条详细记录。`;
             } catch (error) {
                 console.error('压缩失败', error);
                 statusMsg.textContent = '压缩失败，请检查网络或设置';
+                throw error; // 让调用方知道失败
             }
         }
 
@@ -1568,9 +1567,11 @@ ${compressText}`;
         }
 
         async function sendMessage() {
-            // 如果策略为compress且消息数>80，自动压缩
+            // 如果策略为compress且消息数>80，自动压缩（压缩后不再立即渲染保存，由后续统一处理）
             if (getMemoryStrategy() === 'compress' && messages.length > 80) {
                 await compressConversation();
+                // 压缩后需要立即保存状态，否则如果后续发送失败会丢失压缩结果
+                saveCurrentSession();
             }
 
             const text = userInput.value.trim();
@@ -1830,6 +1831,9 @@ ${compressText}`;
             // 如果切换为压缩策略且当前消息较多，执行压缩
             if (memoryStrategy === 'compress' && oldStrategy !== 'compress' && messages.length > 80) {
                 await compressConversation();
+                // 压缩后保存并渲染
+                saveCurrentSession();
+                renderMessages();
             }
 
             closeSettings();
