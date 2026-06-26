@@ -1379,25 +1379,53 @@
         }
 
         // ============================================================
-        // 6. 深度思考解析辅助
+        // 6. 深度思考解析辅助（已优化）
         // ============================================================
         function parseThinkingAnswer(fullReply) {
             const thinkMarker = '思考过程：';
             const answerMarker = '最终答案：';
             let thinking = '';
             let answer = fullReply;
-            let thinkStart = fullReply.indexOf(thinkMarker);
-            if (thinkStart !== -1) {
-                let answerStart = fullReply.indexOf(answerMarker, thinkStart + thinkMarker.length);
-                if (answerStart !== -1) {
-                    thinking = fullReply.substring(thinkStart + thinkMarker.length, answerStart).trim();
-                    answer = fullReply.substring(answerStart + answerMarker.length).trim();
+
+            // 尝试查找思考过程和最终答案
+            let thinkIndex = fullReply.indexOf(thinkMarker);
+            let answerIndex = fullReply.indexOf(answerMarker);
+
+            if (thinkIndex !== -1 && answerIndex !== -1) {
+                // 两个都有
+                // 确保思考在答案之前
+                if (thinkIndex < answerIndex) {
+                    thinking = fullReply.substring(thinkIndex + thinkMarker.length, answerIndex).trim();
+                    answer = fullReply.substring(answerIndex + answerMarker.length).trim();
                 } else {
-                    // 没有找到最终答案标记，可能整个都是思考，或格式不对
-                    thinking = '';
-                    answer = fullReply;
+                    // 顺序颠倒，尝试分别提取
+                    thinking = fullReply.substring(thinkIndex + thinkMarker.length).trim();
+                    answer = fullReply.substring(0, thinkIndex).trim();
+                    // 如果答案部分包含“最终答案：”标记，移除它
+                    if (answer.startsWith(answerMarker)) {
+                        answer = answer.substring(answerMarker.length).trim();
+                    }
                 }
+            } else if (thinkIndex !== -1) {
+                // 只有思考标记
+                thinking = fullReply.substring(thinkIndex + thinkMarker.length).trim();
+                answer = '';
+            } else if (answerIndex !== -1) {
+                // 只有答案标记
+                thinking = '';
+                answer = fullReply.substring(answerIndex + answerMarker.length).trim();
+            } else {
+                // 没有标记
+                thinking = '';
+                answer = fullReply;
             }
+
+            // 如果思考为空，但答案为空（即只有思考部分），我们将思考作为答案
+            if (thinking && !answer) {
+                answer = thinking;
+                thinking = '';
+            }
+
             return { thinking, answer };
         }
 
@@ -1574,7 +1602,7 @@
         }
 
         // ============================================================
-        // 9. API 调用（支持深度思考格式要求）
+        // 9. API 调用（支持深度思考格式要求 - 已强化提示词）
         // ============================================================
         function getApiKey() {
             return localStorage.getItem(STORAGE_KEYS.apiKey) || '';
@@ -1608,7 +1636,7 @@
 
             let systemContent = 'You are a highly intelligent assistant that remembers the full conversation context. Always refer back to previous exchanges to provide coherent and accurate responses.';
             if (deepThinkingEnabled) {
-                systemContent += ' Please provide your reasoning process step by step before giving the final answer. Start your response with "思考过程：" and then the reasoning. After that, start a new line with "最终答案：" and then your final answer. Make sure to clearly separate these two sections.';
+                systemContent += ' Please provide your reasoning process step by step before giving the final answer. You MUST follow this format exactly:\n\n思考过程：\n[Your reasoning here]\n\n最终答案：\n[Your final answer]\n\nMake sure to include both sections with the exact headers "思考过程：" and "最终答案：" in Chinese.';
             }
 
             const apiMessages = [
