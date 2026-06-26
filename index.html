@@ -72,8 +72,8 @@
             border-radius: 18px;
             word-wrap: break-word;
             width: 100%;
-            white-space: pre-wrap;   /* 保留换行，实现分段 */
-            line-height: 1.6;        /* 增加行距，更舒适 */
+            white-space: pre-wrap;
+            line-height: 1.6;
         }
         .user-message {
             background: #ffebee;
@@ -142,6 +142,39 @@
             padding: 2px 4px;
             line-height: 1.4;
             cursor: default;
+        }
+
+        /* 深度思考样式 */
+        .thinking-container {
+            margin-bottom: 8px;
+            background: #f5f5f5;
+            border-radius: 12px;
+            padding: 6px 10px;
+            border-left: 3px solid #f8bbd0;
+        }
+        .thinking-toggle {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 13px;
+            cursor: pointer;
+            padding: 2px 0;
+            font-weight: 500;
+            font-family: inherit;
+        }
+        .thinking-toggle:hover {
+            color: #f8bbd0;
+        }
+        .thinking-content {
+            margin-top: 6px;
+            font-size: 14px;
+            color: #555;
+            white-space: pre-wrap;
+            line-height: 1.5;
+            display: none;
+        }
+        .thinking-content.visible {
+            display: block;
         }
 
         /* ===== 输入区域 ===== */
@@ -407,8 +440,6 @@
             align-self: flex-start;
             letter-spacing: 0.3px;
         }
-
-        /* ===== 修改历史记录项为两行布局 ===== */
         .history-item {
             display: flex;
             flex-direction: column;
@@ -467,7 +498,6 @@
             width: 100%;
             padding-left: 0;
         }
-
         .no-history {
             color: #ccc;
             text-align: center;
@@ -709,8 +739,6 @@
         .context-menu.active {
             display: block;
         }
-
-        /* ===== 上下文菜单按钮样式（含SVG图标） ===== */
         .context-menu button {
             display: flex;
             align-items: center;
@@ -744,12 +772,10 @@
         .context-menu button:hover svg {
             color: #f48fb1;
         }
-        /* 置顶图标倾斜，与重命名铅笔风格一致 */
         #menu-pin svg {
             transform: rotate(30deg);
             display: inline-block;
         }
-        /* 删除按钮红色 */
         .context-menu .danger {
             color: #d32f2f;
         }
@@ -975,7 +1001,6 @@
         </div>
     </div>
 
-    <!-- ===== 修改后的上下文菜单（SVG图标） ===== -->
     <div class="context-menu" id="context-menu">
         <button id="menu-rename">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -1104,7 +1129,6 @@
             messages = JSON.parse(JSON.stringify(session.messages));
             currentSessionId = sessionId;
             renderMessages();
-            // 加载历史记录时滚动到底部，方便查看最新消息
             chatBox.scrollTop = chatBox.scrollHeight;
             userInput.value = '';
             autoResize(userInput);
@@ -1250,7 +1274,6 @@
                 userInput.value = '';
                 autoResize(userInput);
                 renderMessages();
-                // 滚动到最新 AI 消息顶部
                 const lastWrapper = chatBox.lastElementChild;
                 if (lastWrapper) {
                     lastWrapper.scrollIntoView({ block: 'start' });
@@ -1275,8 +1298,16 @@
                         });
                         const lastMsg = messages[messages.length - 1];
                         if (lastMsg.type === 'ai') {
-                            lastMsg.text = fullReply || '（AI没有返回内容）';
-                            lastMsg.versions[0].text = lastMsg.text;
+                            // 深度思考解析
+                            if (deepThinkingEnabled) {
+                                const parsed = parseThinkingAnswer(fullReply);
+                                lastMsg.thinking = parsed.thinking;
+                                lastMsg.text = parsed.answer;
+                                lastMsg.versions[0].text = parsed.answer;
+                            } else {
+                                lastMsg.text = fullReply || '（AI没有返回内容）';
+                                lastMsg.versions[0].text = lastMsg.text;
+                            }
                             lastMsg.currentVersion = 0;
                             const cumulative = calculateTotalTokens();
                             lastMsg.versions[0].cumulativeTokens = cumulative;
@@ -1332,33 +1363,85 @@
             }
         }
 
-        // ★★★★★ 修正后的 autoResize：严格判断是否超过一行 ★★★★★
         function autoResize(textarea) {
             const computed = window.getComputedStyle(textarea);
             const minHeight = parseFloat(computed.minHeight) || 40;
             const maxHeight = parseFloat(computed.maxHeight) || 150;
-
-            // 先强制重置为 minHeight
             textarea.style.height = minHeight + 'px';
-
-            // 如果内容为空或只有空白，直接保持 minHeight
             if (!textarea.value || textarea.value.trim() === '') {
                 return;
             }
-
-            // 重新获取 scrollHeight（此时高度为 minHeight）
             const scrollHeight = textarea.scrollHeight;
-
-            // 只有当 scrollHeight 明显大于 minHeight（加2px容差）时才拉高
             if (scrollHeight > minHeight + 2) {
                 const target = Math.min(scrollHeight, maxHeight);
                 textarea.style.height = target + 'px';
             }
-            // 否则保持 minHeight（已设置）
         }
 
         // ============================================================
-        // 6. 聊天渲染
+        // 6. 深度思考解析辅助
+        // ============================================================
+        function parseThinkingAnswer(fullReply) {
+            const thinkMarker = '思考过程：';
+            const answerMarker = '最终答案：';
+            let thinking = '';
+            let answer = fullReply;
+            let thinkStart = fullReply.indexOf(thinkMarker);
+            if (thinkStart !== -1) {
+                let answerStart = fullReply.indexOf(answerMarker, thinkStart + thinkMarker.length);
+                if (answerStart !== -1) {
+                    thinking = fullReply.substring(thinkStart + thinkMarker.length, answerStart).trim();
+                    answer = fullReply.substring(answerStart + answerMarker.length).trim();
+                } else {
+                    // 没有找到最终答案标记，可能整个都是思考，或格式不对
+                    thinking = '';
+                    answer = fullReply;
+                }
+            }
+            return { thinking, answer };
+        }
+
+        // ============================================================
+        // 7. 压缩对话（生成摘要）
+        // ============================================================
+        async function compressConversation() {
+            if (messages.length <= 100) return;
+            if (isGenerating) {
+                alert('正在生成中，请稍候');
+                return;
+            }
+            // 保留最近20条消息
+            const keepCount = 20;
+            const toCompress = messages.slice(0, messages.length - keepCount);
+            const recent = messages.slice(messages.length - keepCount);
+            if (toCompress.length === 0) return;
+
+            // 构建摘要请求
+            const compressText = toCompress.map(m => (m.type === 'user' ? '用户：' : '助手：') + m.text).join('\n');
+            const summaryPrompt = `请为以下对话生成一个简洁的摘要，以便后续对话能够参考。摘要应涵盖对话的主要话题和关键信息。\n\n${compressText}`;
+
+            statusMsg.textContent = '正在生成摘要...';
+            try {
+                // 临时设置深度思考为false，避免摘要也带思考过程
+                const origDeep = deepThinkingEnabled;
+                deepThinkingEnabled = false;
+                const summary = await generateAIResponse([{ type: 'user', text: summaryPrompt }], null);
+                deepThinkingEnabled = origDeep;
+
+                // 用摘要替换前部消息
+                const summaryMsg = { type: 'system', text: `【对话摘要】\n${summary}` };
+                messages = [summaryMsg, ...recent];
+                renderMessages();
+                saveCurrentSession();
+                statusMsg.textContent = '对话已压缩，摘要已生成。';
+            } catch (error) {
+                console.error('压缩失败', error);
+                statusMsg.textContent = '压缩失败，请检查网络或设置';
+            }
+        }
+
+        // ============================================================
+        // 8. 聊天渲染（支持深度思考折叠）
         // ============================================================
         function renderMessages() {
             chatBox.innerHTML = '';
@@ -1376,7 +1459,37 @@
                 if (msg.type === 'ai' && index === 0 && msg.text === WELCOME_TEXT) {
                     bubble.classList.add('welcome-message');
                 }
-                bubble.textContent = msg.text;
+
+                // 处理AI消息的思考区域
+                if (msg.type === 'ai' && msg.thinking) {
+                    // 构建思考容器
+                    const thinkContainer = document.createElement('div');
+                    thinkContainer.className = 'thinking-container';
+
+                    const toggleBtn = document.createElement('button');
+                    toggleBtn.className = 'thinking-toggle';
+                    toggleBtn.textContent = '展开思考过程';
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'thinking-content';
+                    contentDiv.textContent = msg.thinking;
+                    toggleBtn.addEventListener('click', function() {
+                        const isHidden = contentDiv.classList.toggle('visible');
+                        toggleBtn.textContent = isHidden ? '收起思考过程' : '展开思考过程';
+                    });
+                    thinkContainer.appendChild(toggleBtn);
+                    thinkContainer.appendChild(contentDiv);
+
+                    // 答案文本
+                    const answerDiv = document.createElement('div');
+                    answerDiv.textContent = msg.text;
+                    answerDiv.style.whiteSpace = 'pre-wrap';
+
+                    bubble.appendChild(thinkContainer);
+                    bubble.appendChild(answerDiv);
+                } else {
+                    bubble.textContent = msg.text;
+                }
+
                 bubble.dataset.index = index;
                 wrapper.appendChild(bubble);
 
@@ -1438,8 +1551,7 @@
 
                 chatBox.appendChild(wrapper);
             });
-            // ★★★ 不再自动滚动到底部 ★★★
-            // 滚动行为由调用方控制（发送/重新生成时滚动到AI消息顶部）
+            // 不再自动滚动
         }
 
         function cycleVersion(index) {
@@ -1456,11 +1568,13 @@
             const versionData = msg.versions[cur];
             msg.text = versionData.text;
             msg.cumulativeTokens = versionData.cumulativeTokens;
+            // 如果存在思考，版本切换时清空思考（简化处理）
+            msg.thinking = undefined;
             renderMessages();
         }
 
         // ============================================================
-        // 7. API 调用
+        // 9. API 调用（支持深度思考格式要求）
         // ============================================================
         function getApiKey() {
             return localStorage.getItem(STORAGE_KEYS.apiKey) || '';
@@ -1494,7 +1608,7 @@
 
             let systemContent = 'You are a highly intelligent assistant that remembers the full conversation context. Always refer back to previous exchanges to provide coherent and accurate responses.';
             if (deepThinkingEnabled) {
-                systemContent += ' Please provide your reasoning process step by step before giving the final answer. Make sure to clearly separate the reasoning from the final answer.';
+                systemContent += ' Please provide your reasoning process step by step before giving the final answer. Start your response with "思考过程：" and then the reasoning. After that, start a new line with "最终答案：" and then your final answer. Make sure to clearly separate these two sections.';
             }
 
             const apiMessages = [
@@ -1505,6 +1619,9 @@
                     apiMessages.push({ role: 'user', content: msg.text });
                 } else if (msg.type === 'ai') {
                     apiMessages.push({ role: 'assistant', content: msg.text });
+                } else if (msg.type === 'system') {
+                    // 系统消息也加入（摘要）
+                    apiMessages.push({ role: 'system', content: msg.text });
                 }
             });
 
@@ -1566,7 +1683,7 @@
         }
 
         // ============================================================
-        // 8. 核心操作
+        // 10. 核心操作（发送、重新生成）
         // ============================================================
 
         function resetChat() {
@@ -1583,6 +1700,11 @@
         }
 
         async function sendMessage() {
+            // 自动压缩检查（若策略为compress且消息数>100）
+            if (getMemoryStrategy() === 'compress' && messages.length > 100) {
+                await compressConversation();
+            }
+
             const text = userInput.value.trim();
             if (!text) {
                 if (editingUserIndex >= 0) {
@@ -1608,7 +1730,6 @@
             const aiMsg = { type: 'ai', text: '...', versions: [{ text: '...', cumulativeTokens: 0 }], currentVersion: 0 };
             messages.push(aiMsg);
             renderMessages();
-            // 滚动到最新 AI 消息顶部
             const lastWrapper = chatBox.lastElementChild;
             if (lastWrapper) {
                 lastWrapper.scrollIntoView({ block: 'start' });
@@ -1631,8 +1752,15 @@
                 });
                 const lastMsg = messages[messages.length - 1];
                 if (lastMsg.type === 'ai') {
-                    lastMsg.text = fullReply || '（AI没有返回内容）';
-                    lastMsg.versions[0].text = lastMsg.text;
+                    if (deepThinkingEnabled) {
+                        const parsed = parseThinkingAnswer(fullReply);
+                        lastMsg.thinking = parsed.thinking;
+                        lastMsg.text = parsed.answer;
+                        lastMsg.versions[0].text = parsed.answer;
+                    } else {
+                        lastMsg.text = fullReply || '（AI没有返回内容）';
+                        lastMsg.versions[0].text = lastMsg.text;
+                    }
                     lastMsg.currentVersion = 0;
                     const cumulative = calculateTotalTokens();
                     lastMsg.versions[0].cumulativeTokens = cumulative;
@@ -1683,11 +1811,11 @@
             aiMsg.versions.push({ text: '...', cumulativeTokens: 0 });
             aiMsg.currentVersion = aiMsg.versions.length - 1;
             aiMsg.text = '...';
+            aiMsg.thinking = undefined; // 清空旧思考
 
             messages = messages.slice(0, index + 1);
 
             renderMessages();
-            // 滚动到最新 AI 消息顶部
             const lastWrapper = chatBox.lastElementChild;
             if (lastWrapper) {
                 lastWrapper.scrollIntoView({ block: 'start' });
@@ -1706,8 +1834,15 @@
                 });
 
                 const lastIdx = aiMsg.versions.length - 1;
-                aiMsg.versions[lastIdx].text = fullReply || '（AI没有返回内容）';
-                aiMsg.text = fullReply || '（AI没有返回内容）';
+                if (deepThinkingEnabled) {
+                    const parsed = parseThinkingAnswer(fullReply);
+                    aiMsg.thinking = parsed.thinking;
+                    aiMsg.text = parsed.answer;
+                    aiMsg.versions[lastIdx].text = parsed.answer;
+                } else {
+                    aiMsg.text = fullReply || '（AI没有返回内容）';
+                    aiMsg.versions[lastIdx].text = aiMsg.text;
+                }
 
                 const cumulative = calculateTotalTokens();
                 aiMsg.versions[lastIdx].cumulativeTokens = cumulative;
@@ -1732,7 +1867,7 @@
         }
 
         // ============================================================
-        // 9. 事件绑定
+        // 11. 事件绑定
         // ============================================================
         chatBox.addEventListener('pointerdown', function(e) {
             if (e.target.tagName === 'TEXTAREA') return;
@@ -1791,7 +1926,7 @@
         });
 
         // ============================================================
-        // 10. 设置管理
+        // 12. 设置管理（保存时触发压缩）
         // ============================================================
         function loadSettings() {
             const savedApiKey = localStorage.getItem(STORAGE_KEYS.apiKey) || '';
@@ -1820,13 +1955,15 @@
             }
         }
 
-        function saveSettings() {
+        async function saveSettings() {
             const apiKey = apiKeyInput.value.trim();
             const model = modelSelect.value;
             const fontSize = parseInt(fontSizeRange.value);
             const showToken = showTokenCheckbox.checked;
             const memoryStrategy = memoryStrategySelect.value;
 
+            // 检查策略是否变为 compress 且消息数>100
+            const oldStrategy = localStorage.getItem(STORAGE_KEYS.memoryStrategy) || 'no-compress';
             localStorage.setItem(STORAGE_KEYS.apiKey, apiKey);
             localStorage.setItem(STORAGE_KEYS.model, model);
             localStorage.setItem(STORAGE_KEYS.fontSize, fontSize);
@@ -1837,6 +1974,12 @@
             applyFontSize(fontSize);
             renderMessages();
             alert('设置已保存！');
+
+            // 如果切换为压缩策略且当前消息较多，执行压缩
+            if (memoryStrategy === 'compress' && oldStrategy !== 'compress' && messages.length > 100) {
+                await compressConversation();
+            }
+
             closeSettings();
         }
 
@@ -1854,7 +1997,7 @@
         }
 
         // ============================================================
-        // 11. 侧滑栏开关
+        // 13. 侧滑栏开关
         // ============================================================
         function openSidebar() {
             sidebar.classList.add('open');
@@ -1886,7 +2029,7 @@
         overlay.addEventListener('click', closeSidebar);
 
         // ============================================================
-        // 12. 设置按钮事件
+        // 14. 设置按钮事件
         // ============================================================
         settingsBtn.addEventListener('click', openSettings);
         settingsSave.addEventListener('click', saveSettings);
@@ -1943,7 +2086,7 @@
         });
 
         // ============================================================
-        // 13. 搜索功能
+        // 15. 搜索功能
         // ============================================================
         function performSearch() {
             searchKeyword = searchInput.value.trim().toLowerCase();
@@ -1954,7 +2097,7 @@
         searchBtn.addEventListener('click', performSearch);
 
         // ============================================================
-        // 14. 历史记录渲染
+        // 16. 历史记录渲染
         // ============================================================
         function renderHistory() {
             const sessions = getSessions();
@@ -2168,7 +2311,7 @@
         });
 
         // ============================================================
-        // 15. 发送和新建
+        // 17. 发送和新建
         // ============================================================
         sendBtn.addEventListener('click', sendMessage);
         userInput.addEventListener('keydown', (e) => {
@@ -2197,7 +2340,7 @@
         });
 
         // ============================================================
-        // 16. 初始化
+        // 18. 初始化
         // ============================================================
         function init() {
             loadSettings();
