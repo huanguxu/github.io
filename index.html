@@ -1301,7 +1301,7 @@
         }
 
         // ============================================================
-        // 6. 压缩对话（生成摘要）- 优化记忆强度
+        // 6. 压缩对话（生成摘要）- 已修改提示文字
         // ============================================================
         async function compressConversation() {
             // 当消息总数超过 80 条时触发压缩，保留最近 30 条
@@ -1330,15 +1330,14 @@
 对话内容：
 ${compressText}`;
 
-            statusMsg.textContent = '正在压缩对话以增强记忆...';
+            statusMsg.textContent = '正在生成对话摘要...';
             try {
-                // 临时关闭深度思考（已删除）
                 const summary = await generateAIResponse([{ type: 'user', text: summaryPrompt }], null);
                 const summaryMsg = { type: 'system', text: `【对话摘要】\n${summary}` };
                 messages = [summaryMsg, ...recent];
                 renderMessages();
                 saveCurrentSession();
-                statusMsg.textContent = `对话已压缩，保留了最近 ${KEEP_RECENT} 条详细记录，记忆已强化。`;
+                statusMsg.textContent = `✅ 对话已压缩，保留了最近 ${KEEP_RECENT} 条详细记录。`;
             } catch (error) {
                 console.error('压缩失败', error);
                 statusMsg.textContent = '压缩失败，请检查网络或设置';
