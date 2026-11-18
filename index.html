@@ -20,7 +20,6 @@
             overflow: hidden;
             height: 100vh;
         }
-
         .main-content {
             display: flex;
             flex-direction: column;
@@ -40,6 +39,32 @@
             margin: 10px 0 16px;
             letter-spacing: 1px;
             flex-shrink: 0;
+        }
+        /* ===== 计费时段提示 ===== */
+        .billing-hint {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            flex-shrink: 0;
+            margin: -6px 0 10px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #999;
+            text-align: center;
+        }
+        .billing-state {
+            padding: 1px 8px;
+            border-radius: 10px;
+            background: #f8bbd0;
+            color: #5d4037;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .billing-hint.peak .billing-state {
+            background: #ffcdd2;
+            color: #b71c1c;
         }
         #chat-box {
             flex: 1;
@@ -143,7 +168,6 @@
             line-height: 1.4;
             cursor: default;
         }
-
         /* ===== 输入区域 ===== */
         .input-area {
             display: flex;
@@ -235,7 +259,6 @@
         .error {
             color: #d32f2f;
         }
-
         /* ===== 菜单按钮与加号 ===== */
         #menu-btn,
         #new-chat-btn {
@@ -273,7 +296,6 @@
         #new-chat-btn:focus {
             background: none !important;
         }
-
         .overlay {
             position: fixed;
             top: 0;
@@ -290,7 +312,6 @@
             opacity: 1;
             visibility: visible;
         }
-
         .sidebar {
             position: fixed;
             top: 0;
@@ -312,7 +333,6 @@
         .sidebar.open {
             transform: translateX(0);
         }
-
         .search-container {
             display: flex;
             gap: 10px;
@@ -349,7 +369,6 @@
             background: #f48fb1;
             transform: scale(0.95);
         }
-
         .history-section {
             flex: 1;
             overflow-y: auto;
@@ -443,7 +462,6 @@
             margin-top: 30px;
             font-size: 15px;
         }
-
         .sidebar-footer {
             margin-top: auto;
             border-top: 1px solid #f0f0f0;
@@ -479,7 +497,6 @@
         #settings-btn:hover svg {
             fill: #f48fb1;
         }
-
         .settings-overlay {
             display: none;
             position: fixed;
@@ -662,7 +679,6 @@
             background: #e0e0e0;
             transform: scale(0.96);
         }
-
         .context-menu {
             display: none;
             position: fixed;
@@ -724,11 +740,15 @@
         .context-menu .danger:hover svg {
             color: #b71c1c;
         }
-
         /* ===== 响应式 ===== */
         @media (max-width: 480px) {
             .main-content {
                 padding: 15px 12px 6px;
+            }
+            .billing-hint {
+                font-size: 11px;
+                gap: 6px;
+                margin: -2px 0 8px;
             }
             #chat-box {
                 padding: 10px 12px 0px 12px;
@@ -852,9 +872,11 @@
     </style>
 </head>
 <body>
-
     <div class="main-content">
         <h1>FENG'S DS</h1>
+        <div class="billing-hint" id="billing-hint">
+            <span class="billing-state" id="billing-state">当前 · 普通五折</span>
+        </div>
         <div id="chat-box"></div>
         <div class="input-area">
             <div class="input-row">
@@ -865,12 +887,9 @@
         </div>
         <div id="status-message" class="status"></div>
     </div>
-
     <button id="menu-btn" aria-label="打开侧边栏">☰</button>
     <button id="new-chat-btn" aria-label="新建对话">+</button>
-
     <div class="overlay" id="overlay"></div>
-
     <div class="sidebar" id="sidebar">
         <div class="search-container">
             <input type="text" id="search-input" placeholder="搜索历史记录..." />
@@ -885,7 +904,6 @@
             </button>
         </div>
     </div>
-
     <div class="settings-overlay" id="settings-overlay">
         <div class="settings-card">
             <h2>设置</h2>
@@ -900,9 +918,10 @@
             <div class="settings-item">
                 <label>模型选择</label>
                 <select id="model-select">
-                    <option value="deepseek-v4-flash">deepseek-v4-flash</option>
-                    <option value="deepseek-v4-pro">deepseek-v4-pro</option>
+                    <option value="deepseek-v4-flash">deepseek-v4-flash（V4.1-Flash）</option>
+                    <option value="deepseek-v4-pro">deepseek-v4-pro（V4-Pro）</option>
                 </select>
+                <p style="font-size:12px; color:#999; margin-top:4px;" id="price-hint"></p>
                 <p style="font-size:12px; color:#999; margin-top:4px;">若平台无法查看数据，请检查 API Key 权限或联系 DeepSeek 支持。</p>
             </div>
             <div class="settings-item">
@@ -932,7 +951,6 @@
             </div>
         </div>
     </div>
-
     <div class="context-menu" id="context-menu">
         <button id="menu-rename">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
@@ -953,7 +971,6 @@
             删除
         </button>
     </div>
-
     <script>
         // ============================================================
         // 1. 配置与 DOM 引用
@@ -966,7 +983,6 @@
             memoryStrategy: 'fengs_memory_strategy',
             sessions: 'fengs_sessions'
         };
-
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('overlay');
         const menuBtn = document.getElementById('menu-btn');
@@ -981,7 +997,6 @@
         const searchInput = document.getElementById('search-input');
         const searchBtn = document.getElementById('search-btn');
         const editIndicator = document.getElementById('edit-indicator');
-
         const settingsOverlay = document.getElementById('settings-overlay');
         const apiKeyInput = document.getElementById('api-key-input');
         const modelSelect = document.getElementById('model-select');
@@ -993,7 +1008,6 @@
         const copyApiBtn = document.getElementById('copy-api-btn');
         const showTokenCheckbox = document.getElementById('show-token-checkbox');
         const memoryStrategySelect = document.getElementById('memory-strategy-select');
-
         // ============================================================
         // 2. 全局变量
         // ============================================================
@@ -1003,11 +1017,9 @@
         let showTokenStats = true;
         let currentSessionId = null;
         let searchKeyword = '';
-
         let editingUserIndex = -1;
         let editingDraft = '';
         let originalText = '';
-
         // ============================================================
         // 3. 数据管理
         // ============================================================
@@ -1015,15 +1027,12 @@
             const stored = localStorage.getItem(STORAGE_KEYS.sessions);
             return stored ? JSON.parse(stored) : [];
         }
-
         function saveSessions(sessions) {
             localStorage.setItem(STORAGE_KEYS.sessions, JSON.stringify(sessions));
         }
-
         function saveCurrentSession() {
             if (messages.length === 1 && messages[0].type === 'ai' && messages[0].text === WELCOME_TEXT) return;
             if (messages.length === 0) return;
-
             const sessions = getSessions();
             if (currentSessionId) {
                 const idx = sessions.findIndex(s => s.id === currentSessionId);
@@ -1049,7 +1058,6 @@
             saveSessions(sessions);
             currentSessionId = newSession.id;
         }
-
         function loadSession(sessionId) {
             const sessions = getSessions();
             const session = sessions.find(s => s.id === sessionId);
@@ -1066,7 +1074,6 @@
             closeSidebar();
             return true;
         }
-
         function deleteSession(sessionId) {
             let sessions = getSessions();
             sessions = sessions.filter(s => s.id !== sessionId);
@@ -1076,7 +1083,6 @@
             }
             renderHistory();
         }
-
         function togglePinned(sessionId) {
             const sessions = getSessions();
             const session = sessions.find(s => s.id === sessionId);
@@ -1086,7 +1092,6 @@
                 renderHistory();
             }
         }
-
         function renameSession(sessionId, newTitle) {
             const sessions = getSessions();
             const session = sessions.find(s => s.id === sessionId);
@@ -1096,7 +1101,6 @@
                 renderHistory();
             }
         }
-
         // ============================================================
         // 4. 工具函数
         // ============================================================
@@ -1111,11 +1115,141 @@
             }
             return Math.ceil(chineseCount * 1.5 + otherCount * 0.8);
         }
-
         function getMemoryStrategy() {
             return localStorage.getItem(STORAGE_KEYS.memoryStrategy) || 'no-compress';
         }
-
+        // ----- 计费时段（北京时间）：高峰 09:00–12:00、14:00–18:00（周一至周五），其余为普通时段（高峰五折） -----
+        // 官方口径：高峰为 UTC 01:00-04:00、06:00-10:00，周一至周五，中国法定节假日除外
+        // 节假日自动识别：内置国务院公布安排（2026 国办发明电〔2025〕7号、2027 国办发明电〔2026〕10号），
+        // 联网时按年份自动补齐（含未来年份），断网或接口失效则回退到内置表
+        const BUILTIN_HOLIDAYS = [
+            { name: '元旦', start: '2026-01-01', end: '2026-01-03' },
+            { name: '春节', start: '2026-02-15', end: '2026-02-23' },
+            { name: '清明节', start: '2026-04-04', end: '2026-04-06' },
+            { name: '劳动节', start: '2026-05-01', end: '2026-05-05' },
+            { name: '端午节', start: '2026-06-19', end: '2026-06-21' },
+            { name: '中秋节', start: '2026-09-25', end: '2026-09-27' },
+            { name: '国庆节', start: '2026-10-01', end: '2026-10-07' },
+            { name: '元旦', start: '2027-01-01', end: '2027-01-03' },
+            { name: '春节', start: '2027-02-05', end: '2027-02-13' },
+            { name: '清明节', start: '2027-04-03', end: '2027-04-05' },
+            { name: '劳动节', start: '2027-05-01', end: '2027-05-05' },
+            { name: '端午节', start: '2027-06-09', end: '2027-06-09' },
+            { name: '中秋节', start: '2027-09-15', end: '2027-09-15' },
+            { name: '国庆节', start: '2027-10-01', end: '2027-10-07' }
+        ];
+        const HOLIDAY_SOURCE = 'https://cdn.jsdelivr.net/gh/NateScarlet/holiday-cn@master/';
+        const HOLIDAY_CACHE_KEY = 'fengs_holiday_cache';
+        const HOLIDAY_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 在线数据本地缓存 7 天
+        const offDayNames = {};   // 'YYYY-MM-DD' -> 节假日名称
+        const holidayYears = {};  // 'YYYY' -> true，表示该年节假日数据可用
+        function formatDateKey(d) {
+            return d.getFullYear() + '-' +
+                String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                String(d.getDate()).padStart(2, '0');
+        }
+        function addOffDay(dateKey, name) {
+            offDayNames[dateKey] = name || '节假日';
+        }
+        function loadBuiltinHolidays() {
+            BUILTIN_HOLIDAYS.forEach(item => {
+                const start = new Date(item.start + 'T00:00:00');
+                const end = new Date(item.end + 'T00:00:00');
+                for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                    addOffDay(formatDateKey(d), item.name);
+                }
+                holidayYears[item.start.slice(0, 4)] = true;
+            });
+        }
+        function readHolidayCache() {
+            try {
+                return JSON.parse(localStorage.getItem(HOLIDAY_CACHE_KEY) || '{}');
+            } catch (e) {
+                return {};
+            }
+        }
+        function mergeHolidayDays(days) {
+            if (!days) return false;
+            const keys = Object.keys(days);
+            keys.forEach(k => addOffDay(k, days[k]));
+            return keys.length > 0;
+        }
+        async function syncHolidayYear(year) {
+            const yearKey = String(year);
+            const cache = readHolidayCache();
+            const entry = cache[yearKey];
+            if (entry && entry.days && (Date.now() - (entry.ts || 0) < HOLIDAY_CACHE_TTL)) {
+                if (mergeHolidayDays(entry.days)) holidayYears[yearKey] = true;
+                return;
+            }
+            try {
+                const resp = await fetch(HOLIDAY_SOURCE + yearKey + '.json', { cache: 'no-cache' });
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const data = await resp.json();
+                const days = {};
+                (data.days || []).forEach(d => {
+                    if (d.isOffDay) days[d.date] = d.name || '节假日';
+                });
+                if (Object.keys(days).length === 0) throw new Error('empty');
+                cache[yearKey] = { ts: Date.now(), days: days };
+                try {
+                    localStorage.setItem(HOLIDAY_CACHE_KEY, JSON.stringify(cache));
+                } catch (e) { /* 存储写满时忽略，本次仍可用 */ }
+                if (mergeHolidayDays(days)) holidayYears[yearKey] = true;
+            } catch (e) {
+                // 联网失败：沿用本地缓存或内置表，不影响高峰判断
+                if (entry && entry.days && mergeHolidayDays(entry.days)) holidayYears[yearKey] = true;
+            }
+        }
+        async function initHolidayData() {
+            loadBuiltinHolidays();
+            const thisYear = new Date().getFullYear();
+            await syncHolidayYear(thisYear);
+            await syncHolidayYear(thisYear + 1);
+            updateBillingState();
+        }
+        function isPeakNow() {
+            const now = new Date();
+            const utcDay = now.getUTCDay();
+            const utcHour = now.getUTCHours();
+            if (offDayNames[formatDateKey(now)]) return false;
+            if (utcDay === 0 || utcDay === 6) return false;
+            return (utcHour >= 1 && utcHour < 4) || (utcHour >= 6 && utcHour < 10);
+        }
+        function updateBillingState() {
+            const stateSpan = document.getElementById('billing-state');
+            const hintBox = document.getElementById('billing-hint');
+            if (!stateSpan || !hintBox) return;
+            const now = new Date();
+            const dateKey = formatDateKey(now);
+            const yearKey = String(now.getFullYear());
+            const todayName = offDayNames[dateKey];
+            const peak = isPeakNow();
+            if (todayName) {
+                stateSpan.textContent = '当前 · ' + todayName + '（五折）';
+            } else if (now.getDay() === 0 || now.getDay() === 6) {
+                stateSpan.textContent = '当前 · 周末（五折）';
+            } else if (peak) {
+                stateSpan.textContent = '当前 · 高峰全价';
+            } else {
+                stateSpan.textContent = '当前 · 普通五折';
+            }
+            stateSpan.title = holidayYears[yearKey]
+                ? '节假日数据：已识别 ' + yearKey + ' 年安排'
+                : yearKey + ' 年节假日安排尚未同步，当前按周一至周五判断';
+            if (peak) hintBox.classList.add('peak');
+            else hintBox.classList.remove('peak');
+        }
+        const MODEL_PRICES = {
+            'deepseek-v4-flash': 'deepseek-v4-flash（V4.1-Flash）｜每 100 万 tokens：缓存命中 普通 $0.003／高峰 $0.006，缓存未命中 普通 $0.15／高峰 $0.3，输出 普通 $0.6／高峰 $1.2',
+            'deepseek-v4-pro': 'deepseek-v4-pro（V4-Pro）｜每 100 万 tokens：缓存命中 普通 $0.022／高峰 $0.044，缓存未命中 普通 $0.66／高峰 $1.32，输出 普通 $1.98／高峰 $3.96'
+        };
+        function renderPriceHint() {
+            const el = document.getElementById('price-hint');
+            if (!el) return;
+            const model = modelSelect ? modelSelect.value : 'deepseek-v4-flash';
+            el.textContent = (MODEL_PRICES[model] || '') + '（普通时段为高峰价格的五折）';
+        }
         function ensureVersionObjects(msg) {
             if (!msg.versions) {
                 msg.versions = [{ text: msg.text, cumulativeTokens: msg.cumulativeTokens || 0 }];
@@ -1136,7 +1270,6 @@
                 msg.currentVersion = 0;
             }
         }
-
         function calculateTotalTokens() {
             let total = 0;
             for (let i = 0; i < messages.length; i++) {
@@ -1147,7 +1280,6 @@
             }
             return total;
         }
-
         // ============================================================
         // 5. 编辑模式管理
         // ============================================================
@@ -1168,7 +1300,6 @@
             userInput.focus();
             userInput.setSelectionRange(userInput.value.length, userInput.value.length);
         }
-
         function exitEditMode(saveDraft = true) {
             if (editingUserIndex >= 0) {
                 const msg = messages[editingUserIndex];
@@ -1186,7 +1317,6 @@
                 autoResize(userInput);
             }
         }
-
         function commitEdit() {
             if (editingUserIndex < 0) return;
             const msg = messages[editingUserIndex];
@@ -1265,7 +1395,6 @@
                 renderMessages();
             }
         }
-
         function saveDraftAndExit() {
             if (editingUserIndex >= 0) {
                 const msg = messages[editingUserIndex];
@@ -1284,7 +1413,6 @@
                 renderMessages();
             }
         }
-
         function autoResize(textarea) {
             const computed = window.getComputedStyle(textarea);
             const minHeight = parseFloat(computed.minHeight) || 40;
@@ -1299,9 +1427,8 @@
                 textarea.style.height = target + 'px';
             }
         }
-
         // ============================================================
-        // 6. 压缩对话（生成摘要）- 已重构，不再自行渲染和保存
+        // 6. 压缩对话（生成摘要） - 已重构，不再自行渲染和保存
         // ============================================================
         async function compressConversation() {
             // 当消息总数超过 80 条时触发压缩，保留最近 30 条
@@ -1312,11 +1439,9 @@
                 alert('正在生成中，请稍候');
                 return;
             }
-
             const toCompress = messages.slice(0, messages.length - KEEP_RECENT);
             const recent = messages.slice(messages.length - KEEP_RECENT);
             if (toCompress.length === 0) return;
-
             // 构建摘要请求
             const compressText = toCompress.map(m => (m.type === 'user' ? '用户：' : '助手：') + m.text).join('\n');
             const summaryPrompt = `请为以下对话生成一个全面且结构清晰的摘要，用于后续对话的长期参考。摘要必须涵盖：
@@ -1324,12 +1449,9 @@
 2. 所有关键结论、决策及理由
 3. 重要的数据、事实和细节
 4. 任何涉及的多轮讨论脉络
-
 请用流畅的段落输出，确保信息密度高，便于快速回顾。
-
 对话内容：
 ${compressText}`;
-
             statusMsg.textContent = '正在生成对话摘要...';
             try {
                 const summary = await generateAIResponse([{ type: 'user', text: summaryPrompt }], null);
@@ -1342,21 +1464,17 @@ ${compressText}`;
                 throw error; // 让调用方知道失败
             }
         }
-
         // ============================================================
         // 7. 聊天渲染
         // ============================================================
         function renderMessages() {
             chatBox.innerHTML = '';
-
             messages.forEach((msg, index) => {
                 if (msg.type === 'ai') {
                     ensureVersionObjects(msg);
                 }
-
                 const wrapper = document.createElement('div');
                 wrapper.className = `message-wrapper ${msg.type === 'user' ? 'user-wrapper' : 'ai-wrapper'}`;
-
                 const bubble = document.createElement('div');
                 bubble.className = `message ${msg.type === 'user' ? 'user-message' : 'ai-message'}`;
                 if (msg.type === 'ai' && index === 0 && msg.text === WELCOME_TEXT) {
@@ -1365,11 +1483,9 @@ ${compressText}`;
                 bubble.textContent = msg.text;
                 bubble.dataset.index = index;
                 wrapper.appendChild(bubble);
-
                 if (msg.type === 'ai' && !(index === 0 && msg.text === WELCOME_TEXT)) {
                     const actions = document.createElement('div');
                     actions.className = 'ai-actions';
-
                     const regenerateBtn = document.createElement('span');
                     regenerateBtn.className = 'regenerate-btn';
                     regenerateBtn.textContent = '↻';
@@ -1379,7 +1495,6 @@ ${compressText}`;
                         regenerateAIMessage(index);
                     });
                     actions.appendChild(regenerateBtn);
-
                     const versionInfo = document.createElement('span');
                     versionInfo.className = 'version-info';
                     const total = msg.versions ? msg.versions.length : 1;
@@ -1391,7 +1506,6 @@ ${compressText}`;
                         cycleVersion(index);
                     });
                     actions.appendChild(versionInfo);
-
                     if (showTokenStats) {
                         const text = msg.text || '';
                         const charCount = text.length;
@@ -1418,14 +1532,11 @@ ${compressText}`;
                         statsSpan.textContent = `字数: ${charCount} | Tokens: ${cumulative}`;
                         actions.appendChild(statsSpan);
                     }
-
                     wrapper.appendChild(actions);
                 }
-
                 chatBox.appendChild(wrapper);
             });
         }
-
         function cycleVersion(index) {
             const msg = messages[index];
             if (!msg || msg.type !== 'ai') return;
@@ -1442,20 +1553,23 @@ ${compressText}`;
             msg.cumulativeTokens = versionData.cumulativeTokens;
             renderMessages();
         }
-
         // ============================================================
         // 8. API 调用（已优化长度控制）
         // ============================================================
         function getApiKey() {
             return localStorage.getItem(STORAGE_KEYS.apiKey) || '';
         }
-
         function getModel() {
             return localStorage.getItem(STORAGE_KEYS.model) || 'deepseek-v4-flash';
         }
-
         const API_URL = 'https://api.deepseek.com/chat/completions';
-
+        // 采样温度：越高越发散。默认调高到 1.15，避免每次回答几乎一样；点「↻」时再逐次递增
+        const SAMPLING_TEMPERATURE = 1.15;
+        const REGENERATE_TEMPERATURE_STEP = 0.15;
+        function clampTemperature(value) {
+            if (typeof value !== 'number' || !isFinite(value)) return SAMPLING_TEMPERATURE;
+            return Math.min(2, Math.max(0, value));
+        }
         function fetchWithTimeout(url, options, timeout = 30000) {
             return Promise.race([
                 fetch(url, options),
@@ -1464,21 +1578,25 @@ ${compressText}`;
                 )
             ]);
         }
-
-        async function generateAIResponse(historyMessages, onChunk) {
+        async function generateAIResponse(historyMessages, onChunk, options) {
             const apiKey = getApiKey();
             if (!apiKey) throw new Error('请先在设置中填写 API Key');
             const model = getModel();
-
             const strategy = getMemoryStrategy();
+            const temperature = clampTemperature(options && options.temperature);
             let historyToSend = historyMessages;
             if (strategy === 'compress' && historyMessages.length > 100) {
                 historyToSend = historyMessages.slice(-100);
             }
-
-            // 系统提示词：强化长度控制
-            const systemContent = `你是一个高度智能的助手，始终记得完整的对话上下文，并参考之前的交流以提供连贯准确的回复。请特别注意用户提到的任何长度限制（如“大约200字”、“不超过300字”等），并严格遵守。如果用户指定了字数范围，你的回复必须控制在该范围内。不要生成过长的回复，要简洁明了。`;
-
+            // 系统提示词：去模板化、不重复；同时保留长度控制
+            const systemContent = `你是一个自然、务实的对话助手。回复规则：
+1. 先给结论或最有用的信息，不要“很高兴为你解答”“希望以上内容对你有帮助”这类套话开场和结尾。
+2. 不要复述用户的问题；同一层意思只说一遍，不要换个说法再说一遍凑长度。
+3. 每一轮都要有实质内容增量。用户没有提出新问题时，不要用总结句把上一轮讲过的再罗列一遍。
+4. 句式、结构和举例不要套同一个模板：避免“首先/其次/最后/总之”的固定骨架，不要每次都凑三点或三点排比。
+5. 用平实的口语，短句为主；列表只在确实并列且超过三项时使用，能一句话说清就用一句话。
+6. 不确定的信息如实说明，不要编造。
+7. 用户提到字数或长度限制（如“大约200字”“不超过300字”）时严格遵守，不作超出的补充。`;
             const apiMessages = [
                 { role: 'system', content: systemContent }
             ];
@@ -1491,7 +1609,6 @@ ${compressText}`;
                     apiMessages.push({ role: 'system', content: msg.text });
                 }
             });
-
             const requestOptions = {
                 method: 'POST',
                 headers: {
@@ -1501,10 +1618,10 @@ ${compressText}`;
                 body: JSON.stringify({
                     model: model,
                     messages: apiMessages,
-                    stream: true
+                    stream: true,
+                    temperature: temperature
                 })
             };
-
             const response = await fetchWithTimeout(API_URL, requestOptions, 30000);
             if (!response.ok) {
                 let errorMsg = `HTTP ${response.status}`;
@@ -1516,20 +1633,16 @@ ${compressText}`;
                 }
                 throw new Error(errorMsg);
             }
-
             const reader = response.body.getReader();
             const decoder = new TextDecoder('utf-8');
             let buffer = '',
                 fullReply = '';
-
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-
                 buffer += decoder.decode(value, { stream: true });
                 const lines = buffer.split('\n');
                 buffer = lines.pop() || '';
-
                 for (const line of lines) {
                     const trimmed = line.trim();
                     if (!trimmed || trimmed === 'data: [DONE]') continue;
@@ -1548,11 +1661,9 @@ ${compressText}`;
             }
             return fullReply;
         }
-
         // ============================================================
         // 9. 核心操作
         // ============================================================
-
         function resetChat() {
             saveCurrentSession();
             messages = [
@@ -1565,7 +1676,6 @@ ${compressText}`;
             autoResize(userInput);
             statusMsg.textContent = '';
         }
-
         async function sendMessage() {
             // 如果策略为compress且消息数>80，自动压缩（压缩后不再立即渲染保存，由后续统一处理）
             if (getMemoryStrategy() === 'compress' && messages.length > 80) {
@@ -1573,7 +1683,6 @@ ${compressText}`;
                 // 压缩后需要立即保存状态，否则如果后续发送失败会丢失压缩结果
                 saveCurrentSession();
             }
-
             const text = userInput.value.trim();
             if (!text) {
                 if (editingUserIndex >= 0) {
@@ -1589,11 +1698,9 @@ ${compressText}`;
                 commitEdit();
                 return;
             }
-
             if (messages.length === 1 && messages[0].type === 'ai' && messages[0].text === WELCOME_TEXT) {
                 messages = [];
             }
-
             const userMsg = { type: 'user', text: text };
             messages.push(userMsg);
             const aiMsg = { type: 'ai', text: '...', versions: [{ text: '...', cumulativeTokens: 0 }], currentVersion: 0 };
@@ -1608,7 +1715,6 @@ ${compressText}`;
             statusMsg.textContent = 'DeepSeek 正在思考...';
             sendBtn.disabled = true;
             isGenerating = true;
-
             try {
                 const history = messages.slice(0, -1);
                 const fullReply = await generateAIResponse(history, (chunk) => {
@@ -1647,14 +1753,12 @@ ${compressText}`;
                 renderMessages();
             }
         }
-
         async function regenerateAIMessage(index) {
             if (isGenerating) {
                 alert('正在生成中，请稍候');
                 return;
             }
             if (index < 0 || index >= messages.length || messages[index].type !== 'ai') return;
-
             let userIndex = -1;
             for (let i = index - 1; i >= 0; i--) {
                 if (messages[i].type === 'user') {
@@ -1666,16 +1770,12 @@ ${compressText}`;
                 alert('无法找到对应的用户消息');
                 return;
             }
-
             const aiMsg = messages[index];
             ensureVersionObjects(aiMsg);
-
             aiMsg.versions.push({ text: '...', cumulativeTokens: 0 });
             aiMsg.currentVersion = aiMsg.versions.length - 1;
             aiMsg.text = '...';
-
             messages = messages.slice(0, index + 1);
-
             renderMessages();
             const lastWrapper = chatBox.lastElementChild;
             if (lastWrapper) {
@@ -1684,24 +1784,22 @@ ${compressText}`;
             statusMsg.textContent = '重新生成中...';
             sendBtn.disabled = true;
             isGenerating = true;
-
             try {
                 const history = messages.slice(0, -1);
+                // 每重新生成一次，温度上调一档，避免和上一版答案高度雷同
+                const regenerateTemperature = SAMPLING_TEMPERATURE + REGENERATE_TEMPERATURE_STEP * (aiMsg.versions.length - 1);
                 const fullReply = await generateAIResponse(history, (chunk) => {
                     const lastIdx = aiMsg.versions.length - 1;
                     aiMsg.versions[lastIdx].text = chunk;
                     aiMsg.text = chunk;
                     renderMessages();
-                });
-
+                }, { temperature: regenerateTemperature });
                 const lastIdx = aiMsg.versions.length - 1;
                 aiMsg.text = fullReply || '（AI没有返回内容）';
                 aiMsg.versions[lastIdx].text = aiMsg.text;
-
                 const cumulative = calculateTotalTokens();
                 aiMsg.versions[lastIdx].cumulativeTokens = cumulative;
                 aiMsg.cumulativeTokens = cumulative;
-
                 saveCurrentSession();
                 statusMsg.textContent = '';
             } catch (error) {
@@ -1719,13 +1817,11 @@ ${compressText}`;
                 renderMessages();
             }
         }
-
         // ============================================================
         // 10. 事件绑定
         // ============================================================
         chatBox.addEventListener('pointerdown', function(e) {
             if (e.target.tagName === 'TEXTAREA') return;
-
             const bubble = e.target.closest('.message');
             if (!bubble) return;
             if (bubble.classList.contains('welcome-message')) return;
@@ -1733,7 +1829,6 @@ ${compressText}`;
             if (isNaN(index)) return;
             const msg = messages[index];
             if (!msg) return;
-
             if (msg.type === 'user') {
                 e.preventDefault();
                 if (editingUserIndex >= 0 && editingUserIndex !== index) {
@@ -1750,7 +1845,6 @@ ${compressText}`;
                 }
             }
         });
-
         document.addEventListener('pointerdown', function(e) {
             if (editingUserIndex >= 0) {
                 const wrapper = e.target.closest('.message-wrapper');
@@ -1767,18 +1861,15 @@ ${compressText}`;
                 }
             }
         });
-
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && editingUserIndex >= 0) {
                 exitEditMode(false);
                 e.preventDefault();
             }
         });
-
         userInput.addEventListener('input', function() {
             autoResize(this);
         });
-
         // ============================================================
         // 11. 设置管理（保存时触发压缩）
         // ============================================================
@@ -1788,19 +1879,17 @@ ${compressText}`;
             const savedFontSize = parseInt(localStorage.getItem(STORAGE_KEYS.fontSize)) || 16;
             const savedShowToken = localStorage.getItem(STORAGE_KEYS.showToken) !== 'false';
             const savedMemory = localStorage.getItem(STORAGE_KEYS.memoryStrategy) || 'no-compress';
-
             apiKeyInput.value = savedApiKey;
             modelSelect.value = savedModel;
             fontSizeRange.value = savedFontSize;
             fontSizeLabel.textContent = savedFontSize + 'px';
             showTokenCheckbox.checked = savedShowToken;
             memoryStrategySelect.value = savedMemory;
-
             showTokenStats = savedShowToken;
             applyFontSize(savedFontSize);
+            renderPriceHint();
             updateToggleButton();
         }
-
         function updateToggleButton() {
             if (apiKeyInput.type === 'password') {
                 togglePwdBtn.textContent = '隐藏';
@@ -1808,26 +1897,23 @@ ${compressText}`;
                 togglePwdBtn.textContent = '显示';
             }
         }
-
         async function saveSettings() {
             const apiKey = apiKeyInput.value.trim();
             const model = modelSelect.value;
             const fontSize = parseInt(fontSizeRange.value);
             const showToken = showTokenCheckbox.checked;
             const memoryStrategy = memoryStrategySelect.value;
-
             const oldStrategy = localStorage.getItem(STORAGE_KEYS.memoryStrategy) || 'no-compress';
             localStorage.setItem(STORAGE_KEYS.apiKey, apiKey);
             localStorage.setItem(STORAGE_KEYS.model, model);
             localStorage.setItem(STORAGE_KEYS.fontSize, fontSize);
             localStorage.setItem(STORAGE_KEYS.showToken, showToken);
             localStorage.setItem(STORAGE_KEYS.memoryStrategy, memoryStrategy);
-
             showTokenStats = showToken;
             applyFontSize(fontSize);
+            renderPriceHint();
             renderMessages();
             alert('设置已保存！');
-
             // 如果切换为压缩策略且当前消息较多，执行压缩
             if (memoryStrategy === 'compress' && oldStrategy !== 'compress' && messages.length > 80) {
                 await compressConversation();
@@ -1835,23 +1921,18 @@ ${compressText}`;
                 saveCurrentSession();
                 renderMessages();
             }
-
             closeSettings();
         }
-
         function applyFontSize(size) {
             chatBox.style.fontSize = size + 'px';
         }
-
         function openSettings() {
             settingsOverlay.classList.add('active');
             loadSettings();
         }
-
         function closeSettings() {
             settingsOverlay.classList.remove('active');
         }
-
         // ============================================================
         // 12. 侧滑栏开关
         // ============================================================
@@ -1866,7 +1947,6 @@ ${compressText}`;
                 renderHistory();
             }, 400);
         }
-
         function closeSidebar() {
             sidebar.classList.remove('open');
             overlay.classList.remove('active');
@@ -1883,7 +1963,6 @@ ${compressText}`;
             }
         });
         overlay.addEventListener('click', closeSidebar);
-
         // ============================================================
         // 13. 设置按钮事件
         // ============================================================
@@ -1893,7 +1972,6 @@ ${compressText}`;
         settingsOverlay.addEventListener('click', function(e) {
             if (e.target === this) closeSettings();
         });
-
         togglePwdBtn.addEventListener('click', function() {
             if (apiKeyInput.type === 'password') {
                 apiKeyInput.type = 'text';
@@ -1903,7 +1981,6 @@ ${compressText}`;
                 this.textContent = '隐藏';
             }
         });
-
         copyApiBtn.addEventListener('click', function() {
             const key = apiKeyInput.value.trim();
             if (!key) {
@@ -1920,7 +1997,6 @@ ${compressText}`;
                 fallbackCopy(key);
             }
         });
-
         function fallbackCopy(text) {
             const textarea = document.createElement('textarea');
             textarea.value = text;
@@ -1934,13 +2010,12 @@ ${compressText}`;
             }
             document.body.removeChild(textarea);
         }
-
         fontSizeRange.addEventListener('input', function() {
             const val = this.value;
             fontSizeLabel.textContent = val + 'px';
             applyFontSize(parseInt(val));
         });
-
+        modelSelect.addEventListener('change', renderPriceHint);
         // ============================================================
         // 14. 搜索功能
         // ============================================================
@@ -1948,23 +2023,19 @@ ${compressText}`;
             searchKeyword = searchInput.value.trim().toLowerCase();
             renderHistory();
         }
-
         searchInput.addEventListener('input', performSearch);
         searchBtn.addEventListener('click', performSearch);
-
         // ============================================================
         // 15. 历史记录渲染
         // ============================================================
         function renderHistory() {
             const sessions = getSessions();
             let html = '<div class="history-main-title">历史记录</div>';
-
             if (sessions.length === 0) {
                 html += '<div class="no-history">暂无对话记录</div>';
                 historyContainer.innerHTML = html;
                 return;
             }
-
             let filtered = sessions;
             if (searchKeyword) {
                 filtered = sessions.filter(s => s.title.toLowerCase().includes(searchKeyword));
@@ -1974,12 +2045,10 @@ ${compressText}`;
                     return;
                 }
             }
-
             const pinned = filtered.filter(s => s.pinned);
             const unpinned = filtered.filter(s => !s.pinned);
             pinned.sort((a, b) => b.timestamp - a.timestamp);
             unpinned.sort((a, b) => b.timestamp - a.timestamp);
-
             const groups = {};
             unpinned.forEach(entry => {
                 const date = new Date(entry.timestamp);
@@ -1990,14 +2059,12 @@ ${compressText}`;
                 groups[dateStr].push(entry);
             });
             const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
-
             if (pinned.length > 0) {
                 html += `<div class="history-date">📌 置顶</div>`;
                 pinned.forEach(session => {
                     html += buildSessionItemHtml(session);
                 });
             }
-
             sortedDates.forEach(dateStr => {
                 html += `<div class="history-date">${dateStr}</div>`;
                 const entries = groups[dateStr].sort((a, b) => b.timestamp - a.timestamp);
@@ -2005,9 +2072,7 @@ ${compressText}`;
                     html += buildSessionItemHtml(entry);
                 });
             });
-
             historyContainer.innerHTML = html;
-
             document.querySelectorAll('.history-item').forEach(item => {
                 item.addEventListener('click', function(e) {
                     if (this.dataset.longpress === 'true') {
@@ -2018,7 +2083,6 @@ ${compressText}`;
                     loadSession(id);
                 });
             });
-
             document.querySelectorAll('.history-item').forEach(item => {
                 item.removeEventListener('touchstart', handleTouchStart);
                 item.removeEventListener('touchend', handleTouchEnd);
@@ -2030,7 +2094,6 @@ ${compressText}`;
                 item.addEventListener('contextmenu', handleContextMenu);
             });
         }
-
         function buildSessionItemHtml(session) {
             const timeStr = new Date(session.timestamp).toLocaleTimeString('zh-CN', {
                 hour: '2-digit',
@@ -2038,7 +2101,6 @@ ${compressText}`;
                 hour12: false
             });
             const pinnedClass = session.pinned ? 'pinned' : '';
-
             let previewText = '（暂无内容）';
             let foundUser = false;
             for (let i = 0; i < session.messages.length; i++) {
@@ -2053,7 +2115,6 @@ ${compressText}`;
             if (previewText.length > 50) {
                 previewText = previewText.substring(0, 50) + '...';
             }
-
             return `
                     <div class="history-item ${pinnedClass}" data-id="${session.id}" data-longpress="false">
                         <div class="question-row">
@@ -2064,17 +2125,14 @@ ${compressText}`;
                     </div>
                 `;
         }
-
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
         }
-
         let longPressTimer = null;
         let touchStartX = 0,
             touchStartY = 0;
-
         function handleTouchStart(e) {
             const touch = e.touches[0];
             touchStartX = touch.clientX;
@@ -2086,7 +2144,6 @@ ${compressText}`;
                 if (navigator.vibrate) navigator.vibrate(30);
             }, 500);
         }
-
         function handleTouchMove(e) {
             if (!longPressTimer) return;
             const touch = e.touches[0];
@@ -2097,23 +2154,19 @@ ${compressText}`;
                 longPressTimer = null;
             }
         }
-
         function handleTouchEnd(e) {
             if (longPressTimer) {
                 clearTimeout(longPressTimer);
                 longPressTimer = null;
             }
         }
-
         function handleContextMenu(e) {
             e.preventDefault();
             const id = this.dataset.id;
             showContextMenu(e.clientX, e.clientY, id);
             this.dataset.longpress = 'true';
         }
-
         let activeItemId = null;
-
         function showContextMenu(x, y, id) {
             activeItemId = id;
             contextMenu.style.left = x + 'px';
@@ -2127,19 +2180,16 @@ ${compressText}`;
                 contextMenu.style.top = (y - rect.height) + 'px';
             }
         }
-
         function hideContextMenu() {
             contextMenu.classList.remove('active');
             activeItemId = null;
             document.querySelectorAll('.history-item').forEach(el => el.dataset.longpress = 'false');
         }
-
         document.addEventListener('click', function(e) {
             if (!contextMenu.contains(e.target)) {
                 hideContextMenu();
             }
         });
-
         document.getElementById('menu-rename').addEventListener('click', function() {
             if (!activeItemId) return;
             const sessions = getSessions();
@@ -2151,13 +2201,11 @@ ${compressText}`;
             }
             hideContextMenu();
         });
-
         document.getElementById('menu-pin').addEventListener('click', function() {
             if (!activeItemId) return;
             togglePinned(activeItemId);
             hideContextMenu();
         });
-
         document.getElementById('menu-delete').addEventListener('click', function() {
             if (!activeItemId) return;
             if (confirm('确定要删除这个对话记录吗？')) {
@@ -2165,7 +2213,6 @@ ${compressText}`;
             }
             hideContextMenu();
         });
-
         // ============================================================
         // 16. 发送和新建
         // ============================================================
@@ -2176,7 +2223,6 @@ ${compressText}`;
                 sendMessage();
             }
         });
-
         newChatBtn.addEventListener('click', function() {
             if (sidebar.classList.contains('open')) {
                 return;
@@ -2189,12 +2235,14 @@ ${compressText}`;
             resetChat();
             renderHistory();
         });
-
         // ============================================================
         // 17. 初始化
         // ============================================================
         function init() {
             loadSettings();
+            updateBillingState();
+            initHolidayData();
+            setInterval(updateBillingState, 60000);
             const sessions = getSessions();
             if (sessions.length > 0) {
                 sessions.sort((a, b) => b.timestamp - a.timestamp);
@@ -2206,7 +2254,6 @@ ${compressText}`;
             renderHistory();
             userInput.focus();
         }
-
         window.addEventListener('load', init);
     </script>
 </body>
