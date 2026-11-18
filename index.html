@@ -296,6 +296,34 @@
         #new-chat-btn:focus {
             background: none !important;
         }
+        /* ===== 角色（本对话人设）按钮 ===== */
+        #char-btn {
+            position: fixed;
+            top: 34px;
+            right: 64px;
+            z-index: 1000;
+            height: 24px;
+            padding: 0 9px;
+            border-radius: 12px;
+            border: 1px solid #f8bbd0;
+            background: rgba(248, 187, 208, 0.14);
+            color: #f06292;
+            font-size: 12px;
+            line-height: 1;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.2s;
+        }
+        #char-btn:hover {
+            background: rgba(248, 187, 208, 0.3);
+        }
+        #char-btn:active {
+            transform: scale(0.92);
+        }
+        #char-btn.has-persona {
+            background: rgba(248, 187, 208, 0.4);
+            border-color: #f48fb1;
+            font-weight: 600;
+        }
         .overlay {
             position: fixed;
             top: 0;
@@ -907,6 +935,7 @@
     </div>
     <button id="menu-btn" aria-label="打开侧边栏">☰</button>
     <button id="new-chat-btn" aria-label="新建对话">+</button>
+    <button id="char-btn" aria-label="本对话的角色设定" title="为这个对话设定角色">角色</button>
     <div class="overlay" id="overlay"></div>
     <div class="sidebar" id="sidebar">
         <div class="search-container">
@@ -943,25 +972,16 @@
                 <p style="font-size:12px; color:#999; margin-top:4px;">若平台无法查看数据，请检查 API Key 权限或联系 DeepSeek 支持。</p>
             </div>
             <div class="settings-item">
-                <label>角色设定</label>
-                <textarea id="persona-input" rows="4" placeholder="身份、和我的关系、当前场景、性格与说话习惯。例：你是巷口修表铺的老板，三十来岁，话少，习惯先动手再开口，不爱解释。"></textarea>
-                <p style="font-size:12px; color:#999; margin:-2px 0 10px;">写得越具体（职业、关系、习惯动作、口头禅），越不容易写成通用 AI 腔。</p>
-            </div>
-            <div class="settings-item">
-                <label>文风示范（可选，但最有效）</label>
-                <textarea id="style-input" rows="3" placeholder="贴 2-3 句你想要的台词，新回复会照这个句长和用词来写。例：“表停了。放这儿吧。” / “别急，先听响。”"></textarea>
-            </div>
-            <div class="settings-item">
                 <label>去 AI 味设置</label>
                 <textarea id="banned-input" rows="3" placeholder="禁用表达，用、分隔"></textarea>
                 <select id="reply-length-select">
                     <option value="short">每条 1 句（25 字以内）</option>
-                    <option value="medium" selected>每条 2-3 句（60 字以内）</option>
-                    <option value="long">每条一小段（120 字以内）</option>
+                    <option value="medium" selected>每条 2-4 句（80 字以内）</option>
+                    <option value="long">每条一小段（150 字以内）</option>
                 </select>
                 <div class="checkbox-row" style="margin-top:10px;">
-                    <input type="checkbox" id="thinking-checkbox" />
-                    <label for="thinking-checkbox">开启思考模式（默认关闭：更省 token，也更像闲聊）</label>
+                    <input type="checkbox" id="thinking-checkbox" checked />
+                    <label for="thinking-checkbox">开启思考模式（更贴人设与长上下文，但更慢、更费 token）</label>
                 </div>
                 <div class="checkbox-row" style="margin-top:8px;">
                     <input type="checkbox" id="auto-rewrite-checkbox" checked />
@@ -988,6 +1008,15 @@
                 </select>
             </div>
             <div class="settings-item">
+                <label>上下文窗口</label>
+                <select id="window-select">
+                    <option value="12" selected>最近 12 条（约 6 轮，最省 token）</option>
+                    <option value="24">最近 24 条（更连贯，token 翻倍）</option>
+                    <option value="0">全部历史（不推荐，长对话很费）</option>
+                </select>
+                <p style="font-size:12px; color:#999; margin-top:4px;">更早的内容会自动压成记忆卡，仍随每轮发送，不丢前情。</p>
+            </div>
+            <div class="settings-item">
                 <label>字号大小</label>
                 <div class="range-row">
                     <input type="range" id="font-size-range" min="14" max="24" value="16" step="1" />
@@ -997,6 +1026,33 @@
             <div class="settings-actions">
                 <button class="save-btn" id="settings-save">保存</button>
                 <button class="close-btn" id="settings-close">关闭</button>
+            </div>
+        </div>
+    </div>
+    <div class="settings-overlay" id="char-overlay">
+        <div class="settings-card">
+            <h2>本对话的角色</h2>
+            <p style="font-size:12px; color:#999; margin:-14px 0 18px; text-align:center;">只对这个对话生效，每个对话各用各的设定</p>
+            <div class="settings-item">
+                <label>角色设定</label>
+                <textarea id="char-persona" rows="4" placeholder="身份、和我的关系、当前场景、性格与说话习惯。例：你是巷口修表铺的老板，三十来岁，话少，习惯先动手再开口，不爱解释。"></textarea>
+            </div>
+            <div class="settings-item">
+                <label>文风示范（可选，但最有效）</label>
+                <textarea id="char-style" rows="3" placeholder="贴 2-3 句你想要的台词，回复会照这个句长和用词来写。例：“表停了。放这儿吧。” / “别急，先听响。”"></textarea>
+            </div>
+            <div class="settings-item">
+                <label>前情备忘</label>
+                <textarea id="char-memo" rows="3" placeholder="关系与称呼、已经发生过的事、说定的约定，每条一行。例：她叫我“老板”；上周三她把表留在这里没回来取。"></textarea>
+            </div>
+            <div class="settings-item">
+                <label>记忆卡（自动累积，可删改）</label>
+                <textarea id="char-memory" rows="4" placeholder="每 3 轮自动追加 1-3 条事实；也可手动补齐或删掉不重要的。"></textarea>
+                <p style="font-size:12px; color:#999; margin:-2px 0 10px;">这里放“必须记住的事”，每轮随提示词发送，字数很少；清空则重新积累。</p>
+            </div>
+            <div class="settings-actions">
+                <button class="save-btn" id="char-save">保存</button>
+                <button class="close-btn" id="char-close">关闭</button>
             </div>
         </div>
     </div>
@@ -1030,7 +1086,9 @@
             fontSize: 'fengs_font_size',
             showToken: 'fengs_show_token',
             memoryStrategy: 'fengs_memory_strategy',
+            historyWindow: 'fengs_history_window',
             persona: 'fengs_persona',
+            memo: 'fengs_memo',
             styleSamples: 'fengs_style_samples',
             bannedWords: 'fengs_banned_words',
             replyLength: 'fengs_reply_length',
@@ -1064,8 +1122,15 @@
         const copyApiBtn = document.getElementById('copy-api-btn');
         const showTokenCheckbox = document.getElementById('show-token-checkbox');
         const memoryStrategySelect = document.getElementById('memory-strategy-select');
-        const personaInput = document.getElementById('persona-input');
-        const styleInput = document.getElementById('style-input');
+        const charBtn = document.getElementById('char-btn');
+        const charOverlay = document.getElementById('char-overlay');
+        const charPersonaInput = document.getElementById('char-persona');
+        const charStyleInput = document.getElementById('char-style');
+        const charMemoInput = document.getElementById('char-memo');
+        const charMemoryInput = document.getElementById('char-memory');
+        const windowSelect = document.getElementById('window-select');
+        const charSaveBtn = document.getElementById('char-save');
+        const charCloseBtn = document.getElementById('char-close');
         const bannedInput = document.getElementById('banned-input');
         const replyLengthSelect = document.getElementById('reply-length-select');
         const thinkingCheckbox = document.getElementById('thinking-checkbox');
@@ -1077,6 +1142,7 @@
         // ============================================================
         let messages = [];
         let isGenerating = false;
+        let memoryUpdating = false;
         const WELCOME_TEXT = '甜心，祝你今天过得愉快！';
         let showTokenStats = true;
         let currentSessionId = null;
@@ -1121,6 +1187,13 @@
             sessions.push(newSession);
             saveSessions(sessions);
             currentSessionId = newSession.id;
+            // 把「草稿」里这份人设跟着这段对话一起落盘
+            const charMap = getCharConfigMap();
+            if (charMap['draft']) {
+                charMap[newSession.id] = charMap['draft'];
+                delete charMap['draft'];
+                saveCharConfigMap(charMap);
+            }
         }
         function loadSession(sessionId) {
             const sessions = getSessions();
@@ -1130,6 +1203,7 @@
             saveCurrentSession();
             messages = JSON.parse(JSON.stringify(session.messages));
             currentSessionId = sessionId;
+            updateCharBtnHint();
             renderMessages();
             chatBox.scrollTop = chatBox.scrollHeight;
             userInput.value = '';
@@ -1507,18 +1581,18 @@
             const recent = messages.slice(messages.length - KEEP_RECENT);
             if (toCompress.length === 0) return;
             // 构建摘要请求
-            const compressText = toCompress.map(m => (m.type === 'user' ? '用户：' : '助手：') + m.text).join('\n');
-            const summaryPrompt = `请为以下对话生成一个全面且结构清晰的摘要，用于后续对话的长期参考。摘要必须涵盖：
-1. 对话的核心议题和主要问题
-2. 所有关键结论、决策及理由
-3. 重要的数据、事实和细节
-4. 任何涉及的多轮讨论脉络
-请用流畅的段落输出，确保信息密度高，便于快速回顾。
+            const compressText = toCompress.map(m => (m.type === 'user' ? '对方：' : m.type === 'system' ? '备忘：' : '角色：') + m.text).join('\n');
+            const summaryPrompt = `以下是需要归档的对话。请按事实条目输出，供后续续写参考：
+1. 人物：谁是谁、彼此关系与称呼
+2. 地点、时间、各自处境
+3. 已经发生的关键动作与说定的约定
+4. 尚未解决的事、悬着的线索
+5. 角色的说话特点（称呼方式、口癖），不要抄原句
 对话内容：
 ${compressText}`;
             statusMsg.textContent = '正在生成对话摘要...';
             try {
-                const summary = await generateAIResponse([{ type: 'user', text: summaryPrompt }], null);
+                const summary = await generateAIResponse([{ type: 'user', text: summaryPrompt }], null, { mode: 'summary', temperature: 0.3 });
                 const summaryMsg = { type: 'system', text: `【对话摘要】\n${summary}` };
                 messages = [summaryMsg, ...recent];
                 statusMsg.textContent = `✅ 对话已压缩，保留了最近 ${KEEP_RECENT} 条详细记录。`;
@@ -1628,8 +1702,27 @@ ${compressText}`;
         }
         const API_URL = 'https://api.deepseek.com/chat/completions';
         // 采样温度：越高越发散。角色扮演默认 1.25；点「↻」时再逐次递增
-        const DEFAULT_TEMPERATURE = 1.25;
+        const DEFAULT_TEMPERATURE = 1.1;
         const REGENERATE_TEMPERATURE_STEP = 0.15;
+        // 压缩记忆专用：只做事实归档，不扮演角色（否则历史会被一句台词顶替掉）
+        const SUMMARY_SYSTEM_PROMPT = `你是对话档案员，不是任何角色，也不要续写剧情。任务：把下面这段角色扮演对话压成事实备忘，供后续续写时参考。
+要求：
+1. 只记录已经发生的事实：人物（名字、身份、关系、彼此怎么称呼）、地点、时间、各自处境、做过的关键动作、说定的约定、尚未解决的事。
+2. 保留角色说话的特点（称呼方式、口癖），但不要抄原句。
+3. 不复述、不评价、不扮演任何角色，不写对白。
+4. 用条目输出，每条一行，300 字以内。`;
+        // 记忆卡：每 3 轮压一次，最多 24 行，短句事实
+        const MEMORY_MAX_LINES = 24;
+        const MEMORY_INTERVAL_AI = 3;
+        const MEMORY_SYSTEM_PROMPT = `你是对话档案员，不是角色，也不要续写剧情。输入是一张“记忆卡”和最近几轮对话。
+任务：只提取续写必须知道的新事实，输出 0-3 行，每行不超过 25 字，以“- ”开头。
+只写：谁做了什么、说定的事、关系或称呼变化、物品归属、没做完的动作、地点与时间。
+不写：情绪、形容、对白原句、推测，以及记忆卡里已有的或同义的内容。
+没有新事实时只输出 NONE。`;
+        function getHistoryWindow() {
+            const v = parseInt(localStorage.getItem(STORAGE_KEYS.historyWindow));
+            return isNaN(v) ? 12 : Math.max(0, v);
+        }
         // 默认禁用表达：网文/角色扮演里最典型的 AI 模板句，可在设置里改
         const DEFAULT_BANNED = [
             '眼底闪过一丝', '眼中闪过一丝', '眸色沉沉', '眸光深邃', '眼神复杂', '眼尾泛红',
@@ -1661,13 +1754,174 @@ ${compressText}`;
             if (typeof value !== 'number' || !isFinite(value)) return DEFAULT_TEMPERATURE;
             return Math.min(2, Math.max(0, value));
         }
-        function getRPConfig() {
+        // ----- 每个对话各自的人设 / 文风 / 前情（按会话 id 存，未落盘的对话用 draft） -----
+        const CHAR_CONFIG_KEY = 'fengs_char_configs';
+        function getCharConfigMap() {
+            try {
+                return JSON.parse(localStorage.getItem(CHAR_CONFIG_KEY)) || {};
+            } catch (e) {
+                return {};
+            }
+        }
+        function saveCharConfigMap(map) {
+            localStorage.setItem(CHAR_CONFIG_KEY, JSON.stringify(map));
+        }
+        function getCharConfig() {
+            const cfg = getCharConfigMap()[currentSessionId || 'draft'] || {};
             return {
-                persona: localStorage.getItem(STORAGE_KEYS.persona) || '',
-                styleSamples: localStorage.getItem(STORAGE_KEYS.styleSamples) || '',
+                persona: cfg.persona || '',
+                styleSamples: cfg.styleSamples || '',
+                memo: cfg.memo || '',
+                memory: cfg.memory || ''
+            };
+        }
+        function setCharConfig(cfg) {
+            const map = getCharConfigMap();
+            const prev = map[currentSessionId || 'draft'] || {};
+            map[currentSessionId || 'draft'] = {
+                persona: cfg.persona || '',
+                styleSamples: cfg.styleSamples || '',
+                memo: cfg.memo || '',
+                memory: cfg.memory !== undefined ? cfg.memory : (prev.memory || '')
+            };
+            saveCharConfigMap(map);
+            updateCharBtnHint();
+        }
+        // 记忆卡按行读写
+        function getMemoryLines() {
+            return getCharConfig().memory.split('\n').map(s => s.trim()).filter(Boolean);
+        }
+        function saveMemoryLines(lines) {
+            const map = getCharConfigMap();
+            const key = currentSessionId || 'draft';
+            const cfg = map[key] || { persona: '', styleSamples: '', memo: '' };
+            cfg.memory = lines.slice(-MEMORY_MAX_LINES).join('\n');
+            map[key] = cfg;
+            saveCharConfigMap(map);
+        }
+        // 四字片段重合率，用来判重
+        function textOverlap(a, b) {
+            const clean = s => String(s || '').replace(/[^\u4e00-\u9fa5A-Za-z0-9]/g, '');
+            const A = clean(a),
+                B = clean(b);
+            if (A.length < 4 || B.length < 4) return A === B ? 1 : 0;
+            const grams = {};
+            for (let i = 0; i + 4 <= A.length; i++) grams[A.slice(i, i + 4)] = true;
+            let total = 0,
+                same = 0;
+            for (let i = 0; i + 4 <= B.length; i++) {
+                total++;
+                if (grams[B.slice(i, i + 4)]) same++;
+            }
+            return total ? same / total : 0;
+        }
+        function normalizeMemoryReply(text) {
+            return String(text || '')
+                .split('\n')
+                .map(s => s.replace(/^[-*·•\s\d.、]+/, '').trim())
+                .filter(s => s && s.toUpperCase() !== 'NONE' && s.length <= 40)
+                .slice(0, 3);
+        }
+        function mergeMemoryLines(newLines) {
+            const old = getMemoryLines();
+            const added = [];
+            newLines.forEach(l => {
+                if (added.length >= 3) return;
+                const dup = old.concat(added).some(o => textOverlap(o, l) > 0.5);
+                if (!dup) added.push(l);
+            });
+            if (added.length === 0) return 0;
+            saveMemoryLines(old.concat(added));
+            return added.length;
+        }
+        // 每 3 轮把最近 6 条压成记忆卡：一次请求、flash 模型、限 160 token
+        async function updateMemory() {
+            if (memoryUpdating || isGenerating) return;
+            const recent = messages.filter(m => m.type === 'user' || m.type === 'ai').slice(-6);
+            if (recent.length < 4) return;
+            const cards = getCharConfig().memory.trim();
+            const dialogue = recent.map(m => (m.type === 'user' ? '对方：' : '角色：') + m.text).join('\n');
+            memoryUpdating = true;
+            const prevStatus = statusMsg.textContent;
+            statusMsg.textContent = '整理记忆…';
+            try {
+                const out = await generateAIResponse(
+                    [{ type: 'user', text: '【已有记忆卡】\n' + (cards || '（空）') + '\n\n【最近对话】\n' + dialogue }],
+                    null,
+                    { mode: 'memory', model: 'deepseek-v4-flash', temperature: 0.2, maxTokens: 160 }
+                );
+                mergeMemoryLines(normalizeMemoryReply(out));
+            } catch (e) {
+                console.error('记忆更新失败', e);
+            } finally {
+                memoryUpdating = false;
+                if (statusMsg.textContent === '整理记忆…') statusMsg.textContent = prevStatus;
+            }
+        }
+        function maybeUpdateMemory() {
+            if (getHistoryWindow() === 0) return; // 发全量历史时不需要记忆卡，省一次请求
+            const aiCount = messages.filter(m => m.type === 'ai' && m.text !== WELCOME_TEXT).length;
+            if (aiCount === 0 || aiCount % MEMORY_INTERVAL_AI !== 0) return;
+            setTimeout(function() { updateMemory(); }, 300);
+        }
+        // 旧版把设定存在全局键里，升级后迁移到这个对话，避免内容丢失
+        function migrateLegacyCharConfig() {
+            const map = getCharConfigMap();
+            const hasContent = Object.keys(map).some(k => {
+                const c = map[k] || {};
+                return String(c.persona || '').trim() || String(c.styleSamples || '').trim() || String(c.memo || '').trim();
+            });
+            if (hasContent) return;
+            const legacyPersona = localStorage.getItem(STORAGE_KEYS.persona) || '';
+            const legacyStyle = localStorage.getItem(STORAGE_KEYS.styleSamples) || '';
+            const legacyMemo = localStorage.getItem(STORAGE_KEYS.memo) || '';
+            if (!legacyPersona && !legacyStyle && !legacyMemo) return;
+            map[currentSessionId || 'draft'] = {
+                persona: legacyPersona,
+                styleSamples: legacyStyle,
+                memo: legacyMemo
+            };
+            saveCharConfigMap(map);
+        }
+        function updateCharBtnHint() {
+            if (!charBtn) return;
+            const has = getCharConfig().persona.trim().length > 0;
+            charBtn.classList.toggle('has-persona', has);
+            charBtn.title = has ? '本对话已设定角色，点击修改' : '为这个对话设定角色（未设定时按第一句推断）';
+        }
+        function openCharPanel() {
+            const cfg = getCharConfig();
+            charPersonaInput.value = cfg.persona;
+            charStyleInput.value = cfg.styleSamples;
+            charMemoInput.value = cfg.memo;
+            charMemoryInput.value = cfg.memory;
+            charOverlay.classList.add('active');
+        }
+        function closeCharPanel() {
+            charOverlay.classList.remove('active');
+        }
+        function saveCharPanel() {
+            setCharConfig({
+                persona: charPersonaInput.value,
+                styleSamples: charStyleInput.value,
+                memo: charMemoInput.value,
+                memory: charMemoryInput.value
+            });
+            closeCharPanel();
+            statusMsg.textContent = '角色设定已保存，只对这个对话生效';
+            setTimeout(function() {
+                if (statusMsg.textContent.indexOf('角色设定') === 0) statusMsg.textContent = '';
+            }, 4000);
+        }
+        function getRPConfig() {
+            const cc = getCharConfig();
+            return {
+                persona: cc.persona,
+                memo: cc.memo,
+                styleSamples: cc.styleSamples,
                 bannedWords: localStorage.getItem(STORAGE_KEYS.bannedWords) || DEFAULT_BANNED.join('、'),
                 replyLength: localStorage.getItem(STORAGE_KEYS.replyLength) || 'medium',
-                thinking: localStorage.getItem(STORAGE_KEYS.thinking) === 'on',
+                thinking: localStorage.getItem(STORAGE_KEYS.thinking) !== 'off',
                 autoRewrite: localStorage.getItem(STORAGE_KEYS.autoRewrite) !== 'off',
                 temperature: clampTemperature(parseFloat(localStorage.getItem(STORAGE_KEYS.temperature)))
             };
@@ -1739,36 +1993,56 @@ ${compressText}`;
         function buildSystemPrompt(options) {
             const rp = getRPConfig();
             const banned = parseBanned(rp.bannedWords);
-            const dynamicBanned = collectRecentPhrases();
+            // 角色自己的口癖不算重复，先剔掉，否则会把人物语感一起禁掉
+            const ownVoice = rp.persona + rp.styleSamples + rp.memo;
+            const dynamicBanned = collectRecentPhrases().filter(g => ownVoice.indexOf(g) === -1);
             const lengthRule = {
                 short: '每条回复 1 句话，25 字以内，像发消息。',
-                medium: '每条回复 2-3 句话，60 字以内。',
-                long: '每条回复一个短段，120 字以内，最多两段。'
-            }[rp.replyLength] || '每条回复 2-3 句话，60 字以内。';
+                medium: '每条回复 2-4 句话，80 字以内。',
+                long: '每条回复一个短段，150 字以内，最多两段。'
+            }[rp.replyLength] || '每条回复 2-4 句话，80 字以内。';
             const personaBlock = rp.persona.trim() ||
                 '（未填写角色设定：从我的第一句话推断角色身份、关系和场景，此后保持一致。）';
+            // 历史里的「对话摘要」不再是独立的 system 消息，统一并进备忘区，避免被忽略
+            const archiveText = ((options && options.archive) || [])
+                .filter(m => m.type === 'system' && m.text)
+                .map(m => String(m.text).replace(/^【对话摘要】\s*/, '').trim())
+                .join('\n');
+            const memoBlock = (rp.memo.trim() || archiveText
+                ? '\n\n【长期设定 / 前情备忘（优先级最高，不得违反）】\n' +
+                  (rp.memo.trim() ? rp.memo.trim() : '') +
+                  (archiveText ? '\n【档案】\n' + archiveText : '')
+                : '');
             const styleBlock = rp.styleSamples.trim()
                 ? '\n\n【文风示范】\n下面几句是我想要的语感，新回复的句长、用词、标点习惯都要和它一致：\n' + rp.styleSamples.trim()
+                : '';
+            // 自动累积的记忆卡：每轮随提示词发送，弥补窗口外的旧信息
+            const memoryText = getCharConfig().memory.trim();
+            const memoryBlock = memoryText
+                ? '\n\n【记忆卡（已经发生的事，写的时候必须与之保持一致）】\n' + memoryText +
+                  '\n这些是事实，不要向对方复述这张清单，也不要解释你知道这些。'
                 : '';
             const retryBlock = options && options.retryHint
                 ? '\n\n【上一版的问题，这次必须改掉】\n' + options.retryHint + '\n换一种完全不同的写法，不要只改几个字。'
                 : '';
+            const anchor = rp.persona.trim().split('\n')[0].slice(0, 80) || '（按第一轮推断的角色）';
             return `你正在扮演一个角色，和我进行一场正在发生的戏。你不是助手，不要解释自己在扮演，不要跳出角色。
 
 【角色】
-${personaBlock}${styleBlock}
+${personaBlock}${memoBlock}${memoryBlock}${styleBlock}
 
 【写法规则】
 1. 只写你这个角色的言行，以及必要的环境、旁人反应。绝不替我写动作、台词、心理或决定。
 2. 每条只推进一小步：一个反应、一个新细节或一句台词，把下一步留给我。不总结、不结案、不写收尾镜头。
-3. 不复述我刚说的话，不重复上一轮内容。同一个意思只说一次。
+3. 必须承接前文：回复里至少有一处接住前面已经发生过的事——一个称呼、一件物品、一个没答完的问题、一个没做完的动作。承接不是复述，别把旧句子抄一遍。
 4. 用具体的身体动作、手上的东西、声音、气味、光线、温度来写。不写"眼里闪过某种情绪""心脏猛地一缩"这类标签式反应。
 5. 比喻一条回复最多一个；不排比，不凑三点，不写金句收尾。
 6. 短句为主，一句话里逗号最多两个。破折号、省略号、感叹号尽量不用。
 7. 虚词克制：${SOFT_LIMIT_WORDS.join('、')}，这些词一条回复里合计最多用一次。
-8. 不要助手腔：不说教、不劝导、不列选项、不写"希望这些能帮到你"之类的话。
-9. 我用（）写的是导演指令，照做，但仍用角色的口吻回应。
-10. 长度：${lengthRule}
+8. 始终用这个角色的身份、称呼和说话习惯开口。规则再多也不能变成通用旁白。
+9. 不要助手腔：不说教、不劝导、不列选项、不写"希望这些能帮到你"之类的话。
+10. 我用（）写的是导演指令，照做，但仍用角色的口吻回应。
+11. 长度：${lengthRule}
 
 【本轮禁用表达】
 ${banned.concat(dynamicBanned).join('、')}
@@ -1776,6 +2050,11 @@ ${banned.concat(dynamicBanned).join('、')}
 
 【本轮要求】
 ${pickTurnSeed()}${retryBlock}
+
+【开口前先确认三件事】
+一、你是：${anchor}
+二、对方是这出戏里的另一个人，不是"用户"。
+三、历史里刚才发生了什么、上一句是谁说了什么。先把这三点对上，再动笔。
 
 【格式】
 对白加引号，动作和叙述不加引号；不写小标题、列表、加粗。`;
@@ -1798,16 +2077,25 @@ ${pickTurnSeed()}${retryBlock}
         async function generateAIResponse(historyMessages, onChunk, options) {
             const apiKey = getApiKey();
             if (!apiKey) throw new Error('请先在设置中填写 API Key');
-            const model = getModel();
-            const strategy = getMemoryStrategy();
+            const model = options && options.model ? options.model : getModel();
             const rp = getRPConfig();
             const temperature = clampTemperature(options && typeof options.temperature === 'number' ? options.temperature : rp.temperature);
-            let historyToSend = historyMessages;
-            if (strategy === 'compress' && historyMessages.length > 100) {
-                historyToSend = historyMessages.slice(-100);
+            const taskMode = (options && options.mode) || '';
+            // 摘要类消息（历史档案）永远保留，只裁对话本身
+            const archive = historyMessages.filter(m => m.type === 'system' && m.text);
+            let historyToSend = historyMessages.filter(m => m.type === 'user' || m.type === 'ai');
+            const win = getHistoryWindow();
+            if (win > 0 && historyToSend.length > win) {
+                historyToSend = historyToSend.slice(-win);
+                // 窗口从对方发言开始，避免第一条是旧回复
+                while (historyToSend.length && historyToSend[0].type === 'ai') historyToSend.shift();
             }
-            // 系统提示词：角色扮演 + 去 AI 味硬规则 + 本轮随机要求
-            const systemContent = buildSystemPrompt(options);
+            const promptOptions = Object.assign({}, options, { archive: archive });
+            const systemContent = taskMode === 'summary'
+                ? SUMMARY_SYSTEM_PROMPT
+                : taskMode === 'memory'
+                    ? MEMORY_SYSTEM_PROMPT
+                    : buildSystemPrompt(promptOptions);
             const apiMessages = [
                 { role: 'system', content: systemContent }
             ];
@@ -1816,9 +2104,8 @@ ${pickTurnSeed()}${retryBlock}
                     apiMessages.push({ role: 'user', content: msg.text });
                 } else if (msg.type === 'ai') {
                     apiMessages.push({ role: 'assistant', content: msg.text });
-                } else if (msg.type === 'system') {
-                    apiMessages.push({ role: 'system', content: msg.text });
                 }
+                // system 类消息（历史摘要）已并入系统提示词，不再单独发送
             });
             // 关闭思考模式：省 token，输出更像闲聊而不是"先分析再作答"
             const requestBody = {
@@ -1827,8 +2114,11 @@ ${pickTurnSeed()}${retryBlock}
                 stream: true,
                 temperature: temperature
             };
-            if (!rp.thinking) {
+            if (!rp.thinking || taskMode === 'summary' || taskMode === 'memory') {
                 requestBody.thinking = { type: 'disabled' };
+            }
+            if (options && options.maxTokens) {
+                requestBody.max_tokens = options.maxTokens;
             }
             const requestOptions = {
                 method: 'POST',
@@ -1892,6 +2182,11 @@ ${pickTurnSeed()}${retryBlock}
                 { type: 'ai', text: WELCOME_TEXT, versions: [{ text: WELCOME_TEXT, cumulativeTokens: 0 }], currentVersion: 0 }
             ];
             currentSessionId = null;
+            // 新对话从空白设定开始，避免把上一个角色的设定带进来
+            const charMap = getCharConfigMap();
+            charMap['draft'] = { persona: '', styleSamples: '', memo: '', memory: '' };
+            saveCharConfigMap(charMap);
+            updateCharBtnHint();
             if (editingUserIndex >= 0) exitEditMode(true);
             renderMessages();
             userInput.value = '';
@@ -1974,6 +2269,7 @@ ${pickTurnSeed()}${retryBlock}
                 }
                 saveCurrentSession();
                 statusMsg.textContent = '';
+                maybeUpdateMemory();
             } catch (error) {
                 console.error(error);
                 const lastMsg = messages[messages.length - 1];
@@ -2130,9 +2426,8 @@ ${pickTurnSeed()}${retryBlock}
             fontSizeLabel.textContent = savedFontSize + 'px';
             showTokenCheckbox.checked = savedShowToken;
             memoryStrategySelect.value = savedMemory;
+            windowSelect.value = String(getHistoryWindow());
             const rp = getRPConfig();
-            personaInput.value = rp.persona;
-            styleInput.value = rp.styleSamples;
             bannedInput.value = rp.bannedWords;
             replyLengthSelect.value = rp.replyLength;
             thinkingCheckbox.checked = rp.thinking;
@@ -2163,8 +2458,7 @@ ${pickTurnSeed()}${retryBlock}
             localStorage.setItem(STORAGE_KEYS.fontSize, fontSize);
             localStorage.setItem(STORAGE_KEYS.showToken, showToken);
             localStorage.setItem(STORAGE_KEYS.memoryStrategy, memoryStrategy);
-            localStorage.setItem(STORAGE_KEYS.persona, personaInput.value);
-            localStorage.setItem(STORAGE_KEYS.styleSamples, styleInput.value);
+            localStorage.setItem(STORAGE_KEYS.historyWindow, windowSelect.value);
             localStorage.setItem(STORAGE_KEYS.bannedWords, bannedInput.value);
             localStorage.setItem(STORAGE_KEYS.replyLength, replyLengthSelect.value);
             localStorage.setItem(STORAGE_KEYS.thinking, thinkingCheckbox.checked ? 'on' : 'off');
@@ -2227,6 +2521,12 @@ ${pickTurnSeed()}${retryBlock}
         // ============================================================
         // 13. 设置按钮事件
         // ============================================================
+        charBtn.addEventListener('click', openCharPanel);
+        charSaveBtn.addEventListener('click', saveCharPanel);
+        charCloseBtn.addEventListener('click', closeCharPanel);
+        charOverlay.addEventListener('click', function(e) {
+            if (e.target === this) closeCharPanel();
+        });
         settingsBtn.addEventListener('click', openSettings);
         settingsSave.addEventListener('click', saveSettings);
         settingsClose.addEventListener('click', closeSettings);
@@ -2516,6 +2816,8 @@ ${pickTurnSeed()}${retryBlock}
             }
             autoResize(userInput);
             renderHistory();
+            migrateLegacyCharConfig();
+            updateCharBtnHint();
             userInput.focus();
         }
         window.addEventListener('load', init);
