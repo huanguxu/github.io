@@ -1010,11 +1010,20 @@
             <div class="settings-item">
                 <label>上下文窗口</label>
                 <select id="window-select">
-                    <option value="12" selected>最近 12 条（约 6 轮，最省 token）</option>
-                    <option value="24">最近 24 条（更连贯，token 翻倍）</option>
-                    <option value="0">全部历史（不推荐，长对话很费）</option>
+                    <option value="8" selected>最近 8 条（约 4 轮，默认，最省 token）</option>
+                    <option value="16">最近 16 条（约 8 轮，更连贯，token 约翻倍）</option>
+                    <option value="0">全部历史（很费 token，不建议）</option>
                 </select>
-                <p style="font-size:12px; color:#999; margin-top:4px;">更早的内容会自动压成记忆卡，仍随每轮发送，不丢前情。</p>
+                <p style="font-size:12px; color:#999; margin-top:4px;">更早的内容靠记忆卡带着，不丢前情。</p>
+            </div>
+            <div class="settings-item">
+                <label>自动整理（文风/前情/记忆）</label>
+                <select id="card-freq-select">
+                    <option value="0">关闭（最省，只本地摘文风）</option>
+                    <option value="1">每轮（最贴，最费）</option>
+                    <option value="3" selected>每 3 轮（推荐）</option>
+                </select>
+                <p style="font-size:12px; color:#999; margin-top:4px;">文风示范每轮本地摘取，不花 token；这里控制前情与记忆的整理频率。</p>
             </div>
             <div class="settings-item">
                 <label>字号大小</label>
@@ -1087,6 +1096,7 @@
             showToken: 'fengs_show_token',
             memoryStrategy: 'fengs_memory_strategy',
             historyWindow: 'fengs_history_window',
+            cardFreq: 'fengs_card_freq',
             persona: 'fengs_persona',
             memo: 'fengs_memo',
             styleSamples: 'fengs_style_samples',
@@ -1129,6 +1139,7 @@
         const charMemoInput = document.getElementById('char-memo');
         const charMemoryInput = document.getElementById('char-memory');
         const windowSelect = document.getElementById('window-select');
+        const cardFreqSelect = document.getElementById('card-freq-select');
         const charSaveBtn = document.getElementById('char-save');
         const charCloseBtn = document.getElementById('char-close');
         const bannedInput = document.getElementById('banned-input');
@@ -1715,14 +1726,9 @@ ${compressText}`;
 4. 用条目输出，每条一行，300 字以内。`;
         // 角色档案自动维护用的两个提示词：都只输出 JSON
         const MEMORY_MAX_LINES = 24;
-        const CARD_UPDATE_PROMPT = `你是资料整理员，不是角色，也不续写剧情。输入是最近几轮对话，任务：为这个角色更新档案。
-只输出 JSON，格式：
-{
-  "style": ["角色这一轮最有代表性的原话，必须一字不改照抄，1-2 句，每句不超过 30 字，用“”包住"],
-  "memo": ["这一轮的关键进展，最多 1 条，不超过 25 字；没有就给空数组"],
-  "memory": ["续写必须记住的新事实（称呼、物品、约定、没做完的事），最多 2 条，不超过 25 字；没有就给空数组"]
-}
-只写客观事实和角色原话，不写情绪形容，不写推测，不输出 JSON 以外的任何文字。`;
+        const CARD_UPDATE_PROMPT = `你是资料整理员，不扮演角色，不续写。输入是最近几轮对话。
+只输出 JSON：{"memo":["这轮的关键进展，最多1条，≤25字"],"memory":["续写必须记住的新事实（称呼、物品、约定、没做完的事），最多2条，≤25字"]}
+没有就给空数组。只写客观事实，不写情绪、形容、推测，不输出 JSON 以外的内容。`;
         const CARD_BUILD_PROMPT = `你是资料整理员，不是角色，也不续写剧情。输入是一段完整的角色扮演对话，任务：整理成这个角色的档案卡。
 只输出 JSON，格式：
 {
@@ -1734,7 +1740,11 @@ ${compressText}`;
 只输出 JSON，不输出任何解释。`;
         function getHistoryWindow() {
             const v = parseInt(localStorage.getItem(STORAGE_KEYS.historyWindow));
-            return isNaN(v) ? 12 : Math.max(0, v);
+            return isNaN(v) ? 8 : Math.max(0, v);
+        }
+        function getCardFreq() {
+            const v = parseInt(localStorage.getItem(STORAGE_KEYS.cardFreq));
+            return isNaN(v) ? 3 : Math.max(0, v);
         }
         // 默认禁用表达：网文/角色扮演里最典型的 AI 模板句，可在设置里改
         const DEFAULT_BANNED = [
@@ -1795,7 +1805,8 @@ ${compressText}`;
                 persona: cfg.persona || '',
                 styleSamples: cfg.styleSamples || '',
                 memo: cfg.memo || '',
-                memory: cfg.memory !== undefined ? cfg.memory : (prev.memory || '')
+                memory: cfg.memory !== undefined ? cfg.memory : (prev.memory || ''),
+                cardTried: cfg.cardTried !== undefined ? cfg.cardTried : !!prev.cardTried
             };
             saveCharConfigMap(map);
             updateCharBtnHint();
@@ -1897,21 +1908,38 @@ ${compressText}`;
             if (all.length <= maxChars) return all;
             return msgs.slice(0, 4).map(line).join('\n') + '\n……（中间省略）……\n' + msgs.slice(-20).map(line).join('\n');
         }
-        // 每轮结束都主动更新：文风示范取这轮原话，前情/记忆补新事实
+        // 文风示范：纯本地从回复里摘一句台词，不花 token
+        function extractStyleLine(text) {
+            const m = String(text || '').match(/[“"]([^”"]{5,30})[”"]/);
+            if (!m) return '';
+            const line = m[1].trim();
+            if (!/[\u4e00-\u9fa5]/.test(line)) return '';
+            return '“' + line + '”';
+        }
+        function appendStyleFromReply() {
+            const lastAi = messages.filter(m => m.type === 'ai' && m.text && m.text !== WELCOME_TEXT).pop();
+            if (!lastAi) return;
+            const line = extractStyleLine(lastAi.text);
+            if (!line) return;
+            const cfg = getCharConfig();
+            const next = mergeLineBlock(cfg.styleSamples, [line], CARD_LIMITS.style, 1);
+            if (next !== cfg.styleSamples) setCharConfig(Object.assign({}, cfg, { styleSamples: next }));
+        }
+        // 按设定频率更新前情/记忆：一次请求，输入每条截 120 字，输出上限 120 token
         async function updateCharacterCards() {
             if (memoryUpdating || isGenerating || !getApiKey()) return;
             const recent = messages.filter(m => m.type === 'user' || m.type === 'ai').slice(-4);
             if (recent.length < 3) return;
             memoryUpdating = true;
             const key = currentSessionId;
-            const dialogue = recent.map(m => (m.type === 'user' ? '对方：' : '角色：') + m.text).join('\n');
+            const dialogue = recent.map(m => (m.type === 'user' ? '对方：' : '角色：') + String(m.text || '').slice(0, 120)).join('\n');
             const prevStatus = statusMsg.textContent;
             statusMsg.textContent = '更新记忆…';
             try {
                 const out = await generateAIResponse(
                     [{ type: 'user', text: '【最近对话】\n' + dialogue }],
                     null,
-                    { mode: 'cardUpdate', model: 'deepseek-v4-flash', temperature: 0.2, maxTokens: 200, jsonMode: true }
+                    { mode: 'cardUpdate', model: 'deepseek-v4-flash', temperature: 0.2, maxTokens: 120, jsonMode: true }
                 );
                 // 期间换了对话就丢弃，别写到别的角色身上
                 if (currentSessionId !== key) return;
@@ -1924,10 +1952,11 @@ ${compressText}`;
                 if (statusMsg.textContent === '更新记忆…') statusMsg.textContent = prevStatus;
             }
         }
-        // 打开有历史的对话时，从头到尾读一遍并补齐角色卡
+        // 打开有历史的对话时读一遍补角色卡：每个对话只尝试一次，避免反复烧 token
         async function ensureCharacterCard() {
             if (memoryUpdating || isGenerating || !getApiKey()) return;
             const cfg = getCharConfig();
+            if (cfg.cardTried) return;
             const needPersona = !cfg.persona.trim();
             const needRest = !cfg.styleSamples.trim() && !cfg.memo.trim() && !cfg.memory.trim();
             if (!needPersona && !needRest) return;
@@ -1939,9 +1968,9 @@ ${compressText}`;
             statusMsg.textContent = '读取历史，整理角色卡…';
             try {
                 const out = await generateAIResponse(
-                    [{ type: 'user', text: '【对话记录】\n' + buildTranscript(dialogue, 8000) }],
+                    [{ type: 'user', text: '【对话记录】\n' + buildTranscript(dialogue, 4000) }],
                     null,
-                    { mode: 'cardBuild', model: 'deepseek-v4-flash', temperature: 0.2, maxTokens: 600, jsonMode: true }
+                    { mode: 'cardBuild', model: 'deepseek-v4-flash', temperature: 0.2, maxTokens: 500, jsonMode: true }
                 );
                 if (currentSessionId !== key) return;
                 const data = parseCardJson(out);
@@ -1951,11 +1980,17 @@ ${compressText}`;
             } finally {
                 memoryUpdating = false;
                 if (statusMsg.textContent === '读取历史，整理角色卡…') statusMsg.textContent = prevStatus;
+                const c2 = getCharConfig();
+                setCharConfig(Object.assign({}, c2, { cardTried: true }));
             }
         }
         function maybeUpdateMemory() {
             const aiCount = messages.filter(m => m.type === 'ai' && m.text !== WELCOME_TEXT).length;
             if (aiCount === 0) return;
+            appendStyleFromReply(); // 每轮都摘，纯本地，零 token
+            const freq = getCardFreq();
+            if (freq <= 0) return;
+            if (aiCount % freq !== 0) return;
             setTimeout(function() { updateCharacterCards(); }, 300);
         }
         // 旧版把设定存在全局键里，升级后迁移到这个对话，避免内容丢失
@@ -2049,8 +2084,7 @@ ${compressText}`;
         function pickTurnSeed() {
             const opener = OPENERS[Math.floor(Math.random() * OPENERS.length)];
             const focus = FOCUSES[Math.floor(Math.random() * FOCUSES.length)];
-            return '开头方式：' + opener + '\n本轮侧重：' + focus +
-                '\n本轮必须出现至少一个新信息（新细节、新动作或新台词），不许把上一轮的内容换个说法重复。';
+            return '开头：' + opener + '；侧重：' + focus + '；至少带一个新信息，别复述上一轮。';
         }
         // 输出后审查：禁用词、虚词密度、与上一轮的措辞重合率
         function auditReply(text, prevText) {
@@ -2075,85 +2109,69 @@ ${compressText}`;
             const issues = [];
             if (hits.length) issues.push('用到了禁用表达：' + hits.join('、'));
             if (softHits.length) issues.push('虚词堆砌：' + softHits.join('、') + '，每个最多用一次');
-            if (overlap > 0.35) issues.push('和上一轮措辞重合约 ' + Math.round(overlap * 100) + '%，几乎是旧句子换字');
+            if (overlap > 0.5) issues.push('和上一轮措辞重合约 ' + Math.round(overlap * 100) + '%，几乎是旧句子换字');
             return {
                 hits: hits,
                 overlap: overlap,
                 issues: issues,
-                needRewrite: hits.length >= 2 || softHits.length >= 2 || overlap > 0.35
+                // 阈值放宽：只有明显翻车才重写，省掉一次整轮请求
+                needRewrite: hits.length >= 3 || softHits.length >= 3 || overlap > 0.5
             };
         }
-        // 组装角色扮演系统提示词：人设 + 文风示范 + 硬规则 + 禁用表达 + 本轮随机要求
+        // 组装角色扮演系统提示词：人设 + 档案 + 文风 + 硬规则 + 禁用表达 + 本轮要求
+        // 全部走压缩版，总量控制在 500 字上下，省 token 但不掉人设
         function buildSystemPrompt(options) {
             const rp = getRPConfig();
             const clipText = (t, n) => (String(t || '').length > n ? String(t).slice(0, n) : String(t || ''));
-            const banned = parseBanned(rp.bannedWords);
-            // 角色自己的口癖不算重复，先剔掉，否则会把人物语感一起禁掉
+            // 禁用表达只发前 18 条 + 3 条动态禁语：最典型的都在前面，剩下的省掉
+            const banned = parseBanned(rp.bannedWords).slice(0, 18);
             const ownVoice = rp.persona + rp.styleSamples + rp.memo;
-            const dynamicBanned = collectRecentPhrases().filter(g => ownVoice.indexOf(g) === -1);
+            const dynamicBanned = collectRecentPhrases().filter(g => ownVoice.indexOf(g) === -1).slice(0, 3);
             const lengthRule = {
-                short: '每条回复 1 句话，25 字以内，像发消息。',
-                medium: '每条回复 2-4 句话，80 字以内。',
-                long: '每条回复一个短段，150 字以内，最多两段。'
-            }[rp.replyLength] || '每条回复 2-4 句话，80 字以内。';
-            const personaBlock = rp.persona.trim() ||
-                '（未填写角色设定：从我的第一句话推断角色身份、关系和场景，此后保持一致。）';
-            // 历史里的「对话摘要」不再是独立的 system 消息，统一并进备忘区，避免被忽略
+                short: '1 句，25 字以内',
+                medium: '2-4 句，80 字以内',
+                long: '一个短段，150 字以内'
+            }[rp.replyLength] || '2-4 句，80 字以内';
+            const personaText = clipText(rp.persona.trim(), 240) ||
+                '（未填写：按我第一句话推断身份、关系与场景，此后保持一致）';
+            // 历史里的「对话摘要」并进档案区，不单独占一条 system 消息
             const archiveText = ((options && options.archive) || [])
                 .filter(m => m.type === 'system' && m.text)
                 .map(m => String(m.text).replace(/^【对话摘要】\s*/, '').trim())
-                .join('\n');
-            const memoBlock = (rp.memo.trim() || archiveText
-                ? '\n\n【长期设定 / 前情备忘（优先级最高，不得违反）】\n' +
-                  (rp.memo.trim() ? clipText(rp.memo.trim(), 280) : '') +
-                  (archiveText ? '\n【档案】\n' + clipText(archiveText, 280) : '')
-                : '');
-            const styleBlock = rp.styleSamples.trim()
-                ? '\n\n【文风示范】\n下面几句是我想要的语感，新回复的句长、用词、标点习惯都要和它一致（越靠前越接近当前情绪）：\n' +
-                  clipText(rp.styleSamples.trim(), 300)
-                : '';
-            // 自动累积的记忆卡：每轮随提示词发送，弥补窗口外的旧信息
+                .join(' ');
+            const factParts = [];
+            if (rp.memo.trim()) factParts.push(clipText(rp.memo.trim(), 140));
+            if (archiveText) factParts.push(clipText(archiveText, 120));
             const memoryText = getCharConfig().memory.trim();
-            const memoryBlock = memoryText
-                ? '\n\n【记忆卡（已经发生的事，写的时候必须与之保持一致）】\n' + clipText(memoryText, 260) +
-                  '\n这些是事实，不要向对方复述这张清单，也不要解释你知道这些。'
+            if (memoryText) factParts.push(clipText(memoryText, 160));
+            const factBlock = factParts.length
+                ? '\n【档案】已发生的事实，写的时候必须一致，但不许向我复述\n' + factParts.join('\n')
+                : '';
+            const styleText = clipText(rp.styleSamples.trim(), 140);
+            const styleBlock = styleText
+                ? '\n【文风】照这个语感写（越靠前越贴当前情绪）\n' + styleText
                 : '';
             const retryBlock = options && options.retryHint
-                ? '\n\n【上一版的问题，这次必须改掉】\n' + options.retryHint + '\n换一种完全不同的写法，不要只改几个字。'
+                ? '\n【要改】' + options.retryHint + '。换一种完全不同的写法。'
                 : '';
-            const anchor = rp.persona.trim().split('\n')[0].slice(0, 80) || '（按第一轮推断的角色）';
-            return `你正在扮演一个角色，和我进行一场正在发生的戏。你不是助手，不要解释自己在扮演，不要跳出角色。
+            return `你正在演这个角色，和我演一场正在发生的戏。你不是助手，不出戏。
 
 【角色】
-${personaBlock}${memoBlock}${memoryBlock}${styleBlock}
+${personaText}${factBlock}${styleBlock}
 
-【写法规则】
-1. 只写你这个角色的言行，以及必要的环境、旁人反应。绝不替我写动作、台词、心理或决定。
-2. 每条只推进一小步：一个反应、一个新细节或一句台词，把下一步留给我。不总结、不结案、不写收尾镜头。
-3. 必须承接前文：回复里至少有一处接住前面已经发生过的事——一个称呼、一件物品、一个没答完的问题、一个没做完的动作。承接不是复述，别把旧句子抄一遍。
-4. 用具体的身体动作、手上的东西、声音、气味、光线、温度来写。不写"眼里闪过某种情绪""心脏猛地一缩"这类标签式反应。
-5. 比喻一条回复最多一个；不排比，不凑三点，不写金句收尾。
-6. 短句为主，一句话里逗号最多两个。破折号、省略号、感叹号尽量不用。
-7. 虚词克制：${SOFT_LIMIT_WORDS.join('、')}，这些词一条回复里合计最多用一次。
-8. 始终用这个角色的身份、称呼和说话习惯开口。规则再多也不能变成通用旁白。
-9. 不要助手腔：不说教、不劝导、不列选项、不写"希望这些能帮到你"之类的话。
-10. 我用（）写的是导演指令，照做，但仍用角色的口吻回应。
-11. 长度：${lengthRule}
+【规则】
+1. 只写你这个角色（及必要环境）的言行，不替我写动作、台词、心理、决定。
+2. 每条只推进一小步，把下一步留给我；不总结、不结案、不写收尾镜头。
+3. 至少一处接住前文（称呼、物品、没答完的话），但不复述原句。
+4. 写具体动作、手上的东西、声音、气味；不写"眼里闪过X""心脏一缩"这类标签。
+5. 短句为主，一句最多两个逗号；不用破折号、省略号、感叹号；比喻最多一个。
+6. 不用助手腔：不说教、不列选项、不写"希望帮到你"。
+7. （）里是我的导演指令，照做但仍用角色口吻。
+8. 长度：${lengthRule}
 
-【本轮禁用表达】
-${banned.concat(dynamicBanned).join('、')}
-以上词句一个字都不要出现；想表达相近意思就换一种具体写法。
-
-【本轮要求】
-${pickTurnSeed()}${retryBlock}
-
-【开口前先确认三件事】
-一、你是：${anchor}
-二、对方是这出戏里的另一个人，不是"用户"。
-三、历史里刚才发生了什么、上一句是谁说了什么。先把这三点对上，再动笔。
-
-【格式】
-对白加引号，动作和叙述不加引号；不写小标题、列表、加粗。`;
+【禁用】${banned.concat(dynamicBanned).join('、')}——一个字都不出现，换一种具体写法。
+【这轮】${pickTurnSeed()}${retryBlock}
+【格式】对白加引号，动作不加引号；不写标题和列表。`;
         }
         function findPreviousAiText(history) {
             for (let i = history.length - 1; i >= 0; i--) {
@@ -2537,6 +2555,7 @@ ${pickTurnSeed()}${retryBlock}
             showTokenCheckbox.checked = savedShowToken;
             memoryStrategySelect.value = savedMemory;
             windowSelect.value = String(getHistoryWindow());
+            cardFreqSelect.value = String(getCardFreq());
             const rp = getRPConfig();
             bannedInput.value = rp.bannedWords;
             replyLengthSelect.value = rp.replyLength;
@@ -2569,6 +2588,7 @@ ${pickTurnSeed()}${retryBlock}
             localStorage.setItem(STORAGE_KEYS.showToken, showToken);
             localStorage.setItem(STORAGE_KEYS.memoryStrategy, memoryStrategy);
             localStorage.setItem(STORAGE_KEYS.historyWindow, windowSelect.value);
+            localStorage.setItem(STORAGE_KEYS.cardFreq, cardFreqSelect.value);
             localStorage.setItem(STORAGE_KEYS.bannedWords, bannedInput.value);
             localStorage.setItem(STORAGE_KEYS.replyLength, replyLengthSelect.value);
             localStorage.setItem(STORAGE_KEYS.thinking, thinkingCheckbox.checked ? 'on' : 'off');
@@ -2912,7 +2932,19 @@ ${pickTurnSeed()}${retryBlock}
         // ============================================================
         // 17. 初始化
         // ============================================================
+        // v2.5 一次性迁移：把旧的默认窗口 12 降到 8，减少每轮发的历史
+        function migrateTokenSettings() {
+            if (localStorage.getItem('fengs_migrated_v25')) return;
+            if (localStorage.getItem(STORAGE_KEYS.historyWindow) === '12') {
+                localStorage.setItem(STORAGE_KEYS.historyWindow, '8');
+            }
+            if (localStorage.getItem(STORAGE_KEYS.cardFreq) === null) {
+                localStorage.setItem(STORAGE_KEYS.cardFreq, '3');
+            }
+            localStorage.setItem('fengs_migrated_v25', '1');
+        }
         function init() {
+            migrateTokenSettings();
             loadSettings();
             updateBillingState();
             initHolidayData();
