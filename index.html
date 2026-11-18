@@ -926,7 +926,7 @@
         <div id="chat-box"></div>
         <div class="input-area">
             <div class="input-row">
-                <textarea id="user-input" placeholder="输入你的问题..."></textarea>
+                <textarea id="user-input" placeholder="说你的话；# 后面写强制指令，会被当成硬性要求执行"></textarea>
                 <span class="edit-indicator" id="edit-indicator">✎ 编辑中</span>
                 <button id="send-btn">发送</button>
             </div>
@@ -1761,17 +1761,17 @@ ${compressText}`;
         // 每轮随机挑一种开场方式，避免条条都从旁白起手
         const OPENERS = [
             '这一轮从一句台词开头：先说话，再补动作。',
-            '这一轮从一个小动作开头：手、肩膀、呼吸，或视线落在某件东西上。',
-            '这一轮先给一个感官细节（声音、气味、温度、光线），再带出自己的反应。',
+            '这一轮从一个小动作开头：手、肩膀、呼吸，或视线落在眼前的东西上。',
+            '这一轮先给一个和我这句话有关的细节（我提到的那件东西、那个动作），再带出自己的反应。',
             '这一轮用一个停顿开场：话没说完，或者干脆先不出声。',
-            '这一轮从对方刚做的事带来的后果写起，不要复述对方做了什么。'
+            '这一轮从我刚做的事带来的后果写起，不要复述我做了什么。'
         ];
         const FOCUSES = [
-            '把注意力放在手边一件具体的物件上。',
-            '让角色露出一个小毛病或习惯性动作。',
-            '用一句回避正面回答的话带过情绪。',
-            '写角色注意到、但没说出口的一个细节。',
-            '让角色做一件和上一轮相反的小事。'
+            '把注意力放在我这句话里提到的那个东西上。',
+            '用一个习惯性的小动作回应，别铺环境。',
+            '回避正面回答一句，但补一个具体动作。',
+            '只给一个反应，比我说的更短。',
+            '把上一轮没答完的那句话接完。'
         ];
         function clampTemperature(value) {
             if (typeof value !== 'number' || !isFinite(value)) return DEFAULT_TEMPERATURE;
@@ -2084,14 +2084,18 @@ ${compressText}`;
         function pickTurnSeed() {
             const opener = OPENERS[Math.floor(Math.random() * OPENERS.length)];
             const focus = FOCUSES[Math.floor(Math.random() * FOCUSES.length)];
-            return '开头：' + opener + '；侧重：' + focus + '；至少带一个新信息，别复述上一轮。';
+            return '开头：' + opener + '；侧重：' + focus + '；至少带一个新信息，必须和我这句话直接相关。';
         }
-        // 输出后审查：禁用词、虚词密度、与上一轮的措辞重合率
-        function auditReply(text, prevText) {
+        // 常见“自说自话式”环境描写：我没提到的这些词成串出现，就是跑题
+        const SCENE_NOISE_WORDS = ['窗外', '窗棂', '阳光', '月光', '灯光', '天色', '空气里', '远处', '街角', '风吹', '风里', '雨声', '下雨', '下雪', '蝉鸣', '天花板', '墙纸', '走廊', '灰尘', '尘埃', '屋里弥漫', '钟摆'];
+        // 输出后审查：禁用词、虚词密度、与上一轮的措辞重合率、无关环境
+        function auditReply(text, prevText, contextText) {
             const rp = getRPConfig();
             const banned = parseBanned(rp.bannedWords);
             const hits = banned.filter(w => w && text.indexOf(w) !== -1);
             const softHits = SOFT_LIMIT_WORDS.filter(w => text.split(w).length - 1 >= 2);
+            const ctx = String(contextText || '');
+            const noise = SCENE_NOISE_WORDS.filter(w => text.indexOf(w) !== -1 && ctx.indexOf(w) === -1);
             let overlap = 0;
             if (prevText && prevText.length >= 40) {
                 const grams = {};
@@ -2110,12 +2114,13 @@ ${compressText}`;
             if (hits.length) issues.push('用到了禁用表达：' + hits.join('、'));
             if (softHits.length) issues.push('虚词堆砌：' + softHits.join('、') + '，每个最多用一次');
             if (overlap > 0.5) issues.push('和上一轮措辞重合约 ' + Math.round(overlap * 100) + '%，几乎是旧句子换字');
+            if (noise.length >= 2) issues.push('写了我没提过的环境陈设：' + noise.join('、') + '，删掉，只留和我这句话有关的动作');
             return {
                 hits: hits,
                 overlap: overlap,
                 issues: issues,
                 // 阈值放宽：只有明显翻车才重写，省掉一次整轮请求
-                needRewrite: hits.length >= 3 || softHits.length >= 3 || overlap > 0.5
+                needRewrite: hits.length >= 3 || softHits.length >= 3 || overlap > 0.5 || noise.length >= 2
             };
         }
         // 组装角色扮演系统提示词：人设 + 档案 + 文风 + 硬规则 + 禁用表达 + 本轮要求
@@ -2160,15 +2165,17 @@ ${compressText}`;
 ${personaText}${factBlock}${styleBlock}
 
 【规则】
-1. 只写你这个角色（及必要环境）的言行，不替我写动作、台词、心理、决定。
-2. 每条只推进一小步，把下一步留给我；不总结、不结案、不写收尾镜头。
-3. 至少一处接住前文（称呼、物品、没答完的话），但不复述原句。
-4. 写具体动作、手上的东西、声音、气味；不写"眼里闪过X""心脏一缩"这类标签。
-5. 短句为主，一句最多两个逗号；不用破折号、省略号、感叹号；比喻最多一个。
-6. 不用助手腔：不说教、不列选项、不写"希望帮到你"。
-7. （）里是我的导演指令，照做但仍用角色口吻。
-8. 长度：${lengthRule}
+1. 只写你这个角色（及必要的环境）的言行，不替我写动作、台词、心理、决定。
+2. 只回应我这一句在说的事：不新开场景，不引入我没提过的人、物、地点，不铺陈设、天气、时间推移。
+3. 每条只推进一小步，把下一步留给我；不总结、不结案、不写收尾镜头。
+4. 至少一处接住前文（称呼、物品、没答完的话），但不复述原句。
+5. 写具体动作和手上正在用的东西；不写"眼里闪过X""心脏一缩"这类标签。
+6. 短句为主，一句最多两个逗号；不用破折号、省略号、感叹号；比喻最多一个。
+7. 不用助手腔：不说教、不列选项、不写"希望帮到你"。
+8. 我消息里 # 之后是 OOC 强制指令：必须照做，可以打破文风与角色设定，但仍用这个角色的身份开口；指令和本规则冲突时，以指令为准。
+9. （）里是我的导演指令，照做但仍用角色口吻。长度：${lengthRule}
 
+【不许写】我没提到的物件、人物、地点、声音、天气；不为凑长度而加的环境描写。
 【禁用】${banned.concat(dynamicBanned).join('、')}——一个字都不出现，换一种具体写法。
 【这轮】${pickTurnSeed()}${retryBlock}
 【格式】对白加引号，动作不加引号；不写标题和列表。`;
@@ -2187,6 +2194,24 @@ ${personaText}${factBlock}${styleBlock}
                     setTimeout(() => reject(new Error('请求超时，请检查网络后重试')), timeout)
                 )
             ]);
+        }
+        // 消息里 # 之后是 OOC 强制指令：前半句给我，后半句当硬要求塞进提示词
+        function splitUserCommand(text) {
+            const raw = String(text || '');
+            const half = raw.indexOf('#');
+            const full = raw.indexOf('＃');
+            let idx;
+            if (half >= 0 && full >= 0) idx = Math.min(half, full);
+            else idx = half >= 0 ? half : full;
+            if (idx < 0) return { say: raw.trim(), cmd: '' };
+            return { say: raw.slice(0, idx).trim(), cmd: raw.slice(idx + 1).trim() };
+        }
+        function formatUserMessage(text) {
+            const p = splitUserCommand(text);
+            if (!p.cmd) return p.say;
+            return (p.say ? p.say + '\n\n' : '') +
+                '【强制指令（OOC，必须执行，优先级高于角色设定、文风与上文）】\n' + p.cmd.slice(0, 200) +
+                '\n先照这条指令做，再用这个角色的口吻继续；不要解释、不要复述指令、不要拒绝、不要当作没看见。';
         }
         async function generateAIResponse(historyMessages, onChunk, options) {
             const apiKey = getApiKey();
@@ -2215,9 +2240,14 @@ ${personaText}${factBlock}${styleBlock}
             const apiMessages = [
                 { role: 'system', content: systemContent }
             ];
-            historyToSend.forEach(msg => {
+            // 只有最新一条用户消息带强制指令块；更早的只发正文，避免旧指令被反复执行
+            const lastUserIdx = historyToSend.map(m => m.type).lastIndexOf('user');
+            historyToSend.forEach((msg, i) => {
                 if (msg.type === 'user') {
-                    apiMessages.push({ role: 'user', content: msg.text });
+                    const content = taskMode
+                        ? msg.text
+                        : (i === lastUserIdx ? formatUserMessage(msg.text) : splitUserCommand(msg.text).say);
+                    apiMessages.push({ role: 'user', content: content });
                 } else if (msg.type === 'ai') {
                     apiMessages.push({ role: 'assistant', content: msg.text });
                 }
@@ -2374,10 +2404,11 @@ ${personaText}${factBlock}${styleBlock}
             try {
                 const history = messages.slice(0, -1);
                 const prevAiText = findPreviousAiText(history);
+                const userCtx = (history.filter(m => m.type === 'user').pop() || {}).text || '';
                 const rp = getRPConfig();
                 let fullReply = await streamInto(history, messages[messages.length - 1]);
                 if (rp.autoRewrite && fullReply) {
-                    const audit = auditReply(fullReply, prevAiText);
+                    const audit = auditReply(fullReply, prevAiText, userCtx);
                     if (audit.needRewrite) {
                         statusMsg.textContent = '第 2 版：换一种写法…';
                         fullReply = await streamInto(history, messages[messages.length - 1], {
@@ -2449,12 +2480,13 @@ ${personaText}${factBlock}${styleBlock}
             try {
                 const history = messages.slice(0, -1);
                 const prevAiText = findPreviousAiText(history);
+                const userCtx = (history.filter(m => m.type === 'user').pop() || {}).text || '';
                 const rp = getRPConfig();
                 // 每重新生成一次，温度上调一档，避免和上一版答案高度雷同
                 const regenerateTemperature = rp.temperature + REGENERATE_TEMPERATURE_STEP * (aiMsg.versions.length - 1);
                 let fullReply = await streamInto(history, aiMsg, { temperature: regenerateTemperature });
                 if (rp.autoRewrite && fullReply) {
-                    const audit = auditReply(fullReply, prevAiText);
+                    const audit = auditReply(fullReply, prevAiText, userCtx);
                     if (audit.needRewrite) {
                         statusMsg.textContent = '第 2 版：换一种写法…';
                         fullReply = await streamInto(history, aiMsg, {
