@@ -2088,6 +2088,57 @@ ${compressText}`;
         }
         // 常见“自说自话式”环境描写：我没提到的这些词成串出现，就是跑题
         const SCENE_NOISE_WORDS = ['窗外', '窗棂', '阳光', '月光', '灯光', '天色', '空气里', '远处', '街角', '风吹', '风里', '雨声', '下雨', '下雪', '蝉鸣', '天花板', '墙纸', '走廊', '灰尘', '尘埃', '屋里弥漫', '钟摆'];
+        // 句级删除用的环境词表（比上面更宽一点，只在没有人称、没有对白的分句上生效）
+        const ENV_WORDS = ['窗外', '窗户', '窗台', '阳光', '月光', '灯光', '台灯', '天色', '夜色', '黄昏', '清晨', '空气', '远处', '街角', '街上', '路上', '屋里', '屋内', '房间', '四周', '周围', '身后', '门口', '门外', '楼下', '楼上', '院子', '走廊', '天花板', '墙上', '地板', '地面', '墙纸', '雨', '雪', '风', '云', '钟摆', '钟声', '车声', '人声', '脚步声'];
+        // 按逗号/句号/换行切成分句，引号内的标点不切
+        function splitClauses(text) {
+            const raw = String(text || '');
+            const parts = [];
+            let buf = '';
+            let inQuote = false;
+            for (let i = 0; i < raw.length; i++) {
+                const ch = raw[i];
+                buf += ch;
+                if ('“”"'.indexOf(ch) !== -1) { inQuote = !inQuote; continue; }
+                if (inQuote) continue;
+                if ('，,；;。！？…\n'.indexOf(ch) !== -1) {
+                    parts.push({ text: buf.trim(), end: ch === '\n' ? '' : ch });
+                    buf = '';
+                }
+            }
+            if (buf.trim()) parts.push({ text: buf.trim(), end: '' });
+            return parts;
+        }
+        // 判定：没有对白、没有人称、含用户这句没提到的环境词 → 无关描写
+        function isEnvClause(clause, ctx) {
+            if (!clause) return false;
+            if (/[“”"]/.test(clause)) return false;
+            if (/[你我咱他她它]/.test(clause)) return false;
+            const hits = ENV_WORDS.filter(w => clause.indexOf(w) !== -1 && String(ctx || '').indexOf(w) === -1);
+            if (!hits.length) return false;
+            return hits.length >= 2 || clause.replace(/\s/g, '').length <= 30;
+        }
+        // 生成后硬删无关分句，剩下的按原标点接回去
+        function trimOffTopic(text, ctx) {
+            const parts = splitClauses(text);
+            if (parts.length <= 1) return text;
+            let removed = false;
+            const kept = parts.filter(p => {
+                if (isEnvClause(p.text, ctx)) { removed = true; return false; }
+                return true;
+            });
+            if (!removed || !kept.length) return text;
+            let out = '';
+            kept.forEach((p, idx) => {
+                out += p.text;
+                if (idx < kept.length - 1) {
+                    out += /[。！？…]/.test(p.end) ? p.end : '，';
+                } else if (!/[。！？…”"]$/.test(p.text)) {
+                    out += '。';
+                }
+            });
+            return out;
+        }
         // 输出后审查：禁用词、虚词密度、与上一轮的措辞重合率、无关环境
         function auditReply(text, prevText, contextText) {
             const rp = getRPConfig();
@@ -2134,9 +2185,9 @@ ${compressText}`;
             const dynamicBanned = collectRecentPhrases().filter(g => ownVoice.indexOf(g) === -1).slice(0, 3);
             const lengthRule = {
                 short: '1 句，25 字以内',
-                medium: '2-4 句，80 字以内',
-                long: '一个短段，150 字以内'
-            }[rp.replyLength] || '2-4 句，80 字以内';
+                medium: '2-3 句，60 字以内',
+                long: '一个短段，120 字以内'
+            }[rp.replyLength] || '2-3 句，60 字以内';
             const personaText = clipText(rp.persona.trim(), 240) ||
                 '（未填写：按我第一句话推断身份、关系与场景，此后保持一致）';
             // 历史里的「对话摘要」并进档案区，不单独占一条 system 消息
@@ -2166,16 +2217,20 @@ ${personaText}${factBlock}${styleBlock}
 
 【规则】
 1. 只写你这个角色（及必要的环境）的言行，不替我写动作、台词、心理、决定。
-2. 只回应我这一句在说的事：不新开场景，不引入我没提过的人、物、地点，不铺陈设、天气、时间推移。
+2. 每条只做一件事：只回应我这句话里的人、东西或问题。我没提到的场景、天气、房间、旁人、时间流逝，一律不写，写了就是跑题。
 3. 每条只推进一小步，把下一步留给我；不总结、不结案、不写收尾镜头。
 4. 至少一处接住前文（称呼、物品、没答完的话），但不复述原句。
-5. 写具体动作和手上正在用的东西；不写"眼里闪过X""心脏一缩"这类标签。
+5. 动作要贴着对白：每个动作都必须指向我提到的东西，或你手上正在碰的东西。
 6. 短句为主，一句最多两个逗号；不用破折号、省略号、感叹号；比喻最多一个。
 7. 不用助手腔：不说教、不列选项、不写"希望帮到你"。
 8. 我消息里 # 之后是 OOC 强制指令：必须照做，可以打破文风与角色设定，但仍用这个角色的身份开口；指令和本规则冲突时，以指令为准。
 9. （）里是我的导演指令，照做但仍用角色口吻。长度：${lengthRule}
 
-【不许写】我没提到的物件、人物、地点、声音、天气；不为凑长度而加的环境描写。
+【句子纪律（硬性）】
+第一句尽量是对白。对白之外最多一句动作，这句里必须有"我/你/它/这/那"，指着我提到的东西。
+可以这样写：“伞给我。”他把手伸过来。
+不要这样写：窗外的雨还在下，屋里静得能听见钟摆，他把杯子推到一边。（这种句子会被删掉）
+【不许写】窗外、天气、光线、房间陈设、远处的声音、旁人、时间推移——除非我这句话里就有。
 【禁用】${banned.concat(dynamicBanned).join('、')}——一个字都不出现，换一种具体写法。
 【这轮】${pickTurnSeed()}${retryBlock}
 【格式】对白加引号，动作不加引号；不写标题和列表。`;
@@ -2345,6 +2400,7 @@ ${personaText}${factBlock}${styleBlock}
         }
         // 把流式输出写进指定消息（含版本），供「首版」和「重写版」共用
         function streamInto(history, aiMsg, options) {
+            const lastUser = (history.filter(m => m.type === 'user').pop() || {}).text || '';
             return generateAIResponse(history, (chunk) => {
                 aiMsg.text = chunk;
                 const vi = aiMsg.currentVersion || 0;
@@ -2352,7 +2408,16 @@ ${personaText}${factBlock}${styleBlock}
                     aiMsg.versions[vi].text = chunk;
                 }
                 renderMessages();
-            }, options);
+            }, options).then(text => {
+                // 收尾前删掉和用户这句话无关的环境分句
+                const cleaned = trimOffTopic(text, lastUser);
+                if (cleaned !== text && aiMsg) {
+                    aiMsg.text = cleaned;
+                    const vi = aiMsg.currentVersion || 0;
+                    if (aiMsg.versions && aiMsg.versions[vi]) aiMsg.versions[vi].text = cleaned;
+                }
+                return cleaned;
+            });
         }
         async function sendMessage() {
             // 如果策略为compress且消息数>80，自动压缩（压缩后不再立即渲染保存，由后续统一处理）
