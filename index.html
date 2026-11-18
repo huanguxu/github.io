@@ -926,7 +926,7 @@
         <div id="chat-box"></div>
         <div class="input-area">
             <div class="input-row">
-                <textarea id="user-input" placeholder="说你的话；# 后面写强制指令，会被当成硬性要求执行"></textarea>
+                <textarea id="user-input" placeholder="请输入文字…"></textarea>
                 <span class="edit-indicator" id="edit-indicator">✎ 编辑中</span>
                 <button id="send-btn">发送</button>
             </div>
@@ -1047,6 +1047,10 @@
                 <textarea id="char-persona" rows="4" placeholder="新对话的第一句话会自动原样填到这里，不改一个字；也可以手动补充。"></textarea>
             </div>
             <div class="settings-item">
+                <label>强制指令（# 后内容自动累积，一直生效）</label>
+                <textarea id="char-commands" rows="4" placeholder="每行一条，最多 5 条。例：回答不超过两句；不要描写环境；叫我“阿岚”。清空即解除。"></textarea>
+            </div>
+            <div class="settings-item">
                 <label>文风示范（随情绪自动更新，旧的保留在下面）</label>
                 <textarea id="char-style" rows="4" placeholder="每轮自动从角色台词里摘 1-2 句放在最前面，旧的往下堆，最多 12 句；也可以手动写。"></textarea>
             </div>
@@ -1138,6 +1142,7 @@
         const charStyleInput = document.getElementById('char-style');
         const charMemoInput = document.getElementById('char-memo');
         const charMemoryInput = document.getElementById('char-memory');
+        const charCommandsInput = document.getElementById('char-commands');
         const windowSelect = document.getElementById('window-select');
         const cardFreqSelect = document.getElementById('card-freq-select');
         const charSaveBtn = document.getElementById('char-save');
@@ -1795,7 +1800,8 @@ ${compressText}`;
                 persona: cfg.persona || '',
                 styleSamples: cfg.styleSamples || '',
                 memo: cfg.memo || '',
-                memory: cfg.memory || ''
+                memory: cfg.memory || '',
+                commands: cfg.commands || ''
             };
         }
         function setCharConfig(cfg) {
@@ -1806,6 +1812,7 @@ ${compressText}`;
                 styleSamples: cfg.styleSamples || '',
                 memo: cfg.memo || '',
                 memory: cfg.memory !== undefined ? cfg.memory : (prev.memory || ''),
+                commands: cfg.commands !== undefined ? cfg.commands : (prev.commands || ''),
                 cardTried: cfg.cardTried !== undefined ? cfg.cardTried : !!prev.cardTried
             };
             saveCharConfigMap(map);
@@ -2024,6 +2031,7 @@ ${compressText}`;
             charStyleInput.value = cfg.styleSamples;
             charMemoInput.value = cfg.memo;
             charMemoryInput.value = cfg.memory;
+            charCommandsInput.value = cfg.commands;
             charOverlay.classList.add('active');
         }
         function closeCharPanel() {
@@ -2034,7 +2042,8 @@ ${compressText}`;
                 persona: charPersonaInput.value,
                 styleSamples: charStyleInput.value,
                 memo: charMemoInput.value,
-                memory: charMemoryInput.value
+                memory: charMemoryInput.value,
+                commands: charCommandsInput.value
             });
             closeCharPanel();
             statusMsg.textContent = '角色设定已保存，只对这个对话生效';
@@ -2207,13 +2216,19 @@ ${compressText}`;
             const styleBlock = styleText
                 ? '\n【文风】照这个语感写（越靠前越贴当前情绪）\n' + styleText
                 : '';
+            // 长期强制指令：从这条对话第一条 # 指令起一直生效
+            const cmdLines = getCharConfig().commands.split('\n').map(s => s.trim()).filter(Boolean).slice(0, COMMAND_MAX_LINES);
+            const cmdBlock = cmdLines.length
+                ? '\n【长期强制指令（一直有效，直到我改掉；与设定、文风冲突时以它为准）】\n' +
+                  cmdLines.map((c, i) => (i + 1) + '. ' + c).join('\n')
+                : '';
             const retryBlock = options && options.retryHint
                 ? '\n【要改】' + options.retryHint + '。换一种完全不同的写法。'
                 : '';
             return `你正在演这个角色，和我演一场正在发生的戏。你不是助手，不出戏。
 
 【角色】
-${personaText}${factBlock}${styleBlock}
+${personaText}${cmdBlock}${factBlock}${styleBlock}
 
 【规则】
 1. 只写你这个角色（及必要的环境）的言行，不替我写动作、台词、心理、决定。
@@ -2223,7 +2238,7 @@ ${personaText}${factBlock}${styleBlock}
 5. 动作要贴着对白：每个动作都必须指向我提到的东西，或你手上正在碰的东西。
 6. 短句为主，一句最多两个逗号；不用破折号、省略号、感叹号；比喻最多一个。
 7. 不用助手腔：不说教、不列选项、不写"希望帮到你"。
-8. 我消息里 # 之后是 OOC 强制指令：必须照做，可以打破文风与角色设定，但仍用这个角色的身份开口；指令和本规则冲突时，以指令为准。
+8. 我消息里 # 之后是 OOC 强制指令：长期有效，一直照做直到我改掉或清空（已记在【长期强制指令】里），可以打破文风与角色设定，但仍用这个角色的身份开口；指令和本规则冲突时，以指令为准。
 9. （）里是我的导演指令，照做但仍用角色口吻。长度：${lengthRule}
 
 【句子纪律（硬性）】
@@ -2261,12 +2276,31 @@ ${personaText}${factBlock}${styleBlock}
             if (idx < 0) return { say: raw.trim(), cmd: '' };
             return { say: raw.slice(0, idx).trim(), cmd: raw.slice(idx + 1).trim() };
         }
+        // # 后的指令不止管这一轮：累积成这张对话的长期指令，每轮随提示词发送
+        const COMMAND_MAX_LINES = 5;
+        const COMMAND_MAX_CHARS = 80;
+        function applyUserCommand(cmd) {
+            const incoming = String(cmd || '')
+                .split(/[\n。]/)
+                .map(s => s.replace(/^[#＃]+/, '').replace(/\s+/g, ' ').trim())
+                .filter(Boolean)
+                .map(s => s.slice(0, COMMAND_MAX_CHARS));
+            if (!incoming.length) return;
+            const cfg = getCharConfig();
+            const existing = (cfg.commands || '').split('\n').map(s => s.trim()).filter(Boolean);
+            const merged = [];
+            incoming.concat(existing).forEach(s => {
+                if (merged.some(x => x === s || x.indexOf(s) === 0 || s.indexOf(x) === 0)) return;
+                merged.push(s);
+            });
+            setCharConfig(Object.assign({}, cfg, { commands: merged.slice(0, COMMAND_MAX_LINES).join('\n') }));
+        }
         function formatUserMessage(text) {
             const p = splitUserCommand(text);
             if (!p.cmd) return p.say;
             return (p.say ? p.say + '\n\n' : '') +
-                '【强制指令（OOC，必须执行，优先级高于角色设定、文风与上文）】\n' + p.cmd.slice(0, 200) +
-                '\n先照这条指令做，再用这个角色的口吻继续；不要解释、不要复述指令、不要拒绝、不要当作没看见。';
+                '【强制指令（OOC，长期有效，已记入档案；优先级高于角色设定、文风与上文）】\n' + p.cmd.slice(0, 200) +
+                '\n从现在起每一轮都照它做，直到我改掉或清空；这一轮先用它，再用这个角色的口吻继续；不要解释、不要复述指令、不要拒绝、不要当作没看见。';
         }
         async function generateAIResponse(historyMessages, onChunk, options) {
             const apiKey = getApiKey();
@@ -2389,7 +2423,7 @@ ${personaText}${factBlock}${styleBlock}
             currentSessionId = null;
             // 新对话从空白设定开始，避免把上一个角色的设定带进来
             const charMap = getCharConfigMap();
-            charMap['draft'] = { persona: '', styleSamples: '', memo: '', memory: '' };
+            charMap['draft'] = { persona: '', styleSamples: '', memo: '', memory: '', commands: '' };
             saveCharConfigMap(charMap);
             updateCharBtnHint();
             if (editingUserIndex >= 0) exitEditMode(true);
@@ -2452,6 +2486,9 @@ ${personaText}${factBlock}${styleBlock}
                     setCharConfig(Object.assign({}, cfg, { persona: text }));
                 }
             }
+            // # 后的指令写进这张对话的长期指令，之后每轮都带着
+            const parsedUser = splitUserCommand(text);
+            if (parsedUser.cmd) applyUserCommand(parsedUser.cmd);
             const userMsg = { type: 'user', text: text };
             messages.push(userMsg);
             const aiMsg = { type: 'ai', text: '...', versions: [{ text: '...', cumulativeTokens: 0 }], currentVersion: 0 };
