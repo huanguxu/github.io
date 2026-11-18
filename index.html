@@ -1035,19 +1035,19 @@
             <p style="font-size:12px; color:#999; margin:-14px 0 18px; text-align:center;">只对这个对话生效，每个对话各用各的设定</p>
             <div class="settings-item">
                 <label>角色设定</label>
-                <textarea id="char-persona" rows="4" placeholder="身份、和我的关系、当前场景、性格与说话习惯。例：你是巷口修表铺的老板，三十来岁，话少，习惯先动手再开口，不爱解释。"></textarea>
+                <textarea id="char-persona" rows="4" placeholder="新对话的第一句话会自动原样填到这里，不改一个字；也可以手动补充。"></textarea>
             </div>
             <div class="settings-item">
-                <label>文风示范（可选，但最有效）</label>
-                <textarea id="char-style" rows="3" placeholder="贴 2-3 句你想要的台词，回复会照这个句长和用词来写。例：“表停了。放这儿吧。” / “别急，先听响。”"></textarea>
+                <label>文风示范（随情绪自动更新，旧的保留在下面）</label>
+                <textarea id="char-style" rows="4" placeholder="每轮自动从角色台词里摘 1-2 句放在最前面，旧的往下堆，最多 12 句；也可以手动写。"></textarea>
             </div>
             <div class="settings-item">
-                <label>前情备忘</label>
-                <textarea id="char-memo" rows="3" placeholder="关系与称呼、已经发生过的事、说定的约定，每条一行。例：她叫我“老板”；上周三她把表留在这里没回来取。"></textarea>
+                <label>前情备忘（自动累积，旧的保留）</label>
+                <textarea id="char-memo" rows="3" placeholder="每轮的关键进展自动加在最前面，最多 20 条；关系、约定、重要转折也可以手动补。"></textarea>
             </div>
             <div class="settings-item">
                 <label>记忆卡（自动累积，可删改）</label>
-                <textarea id="char-memory" rows="4" placeholder="每 3 轮自动追加 1-3 条事实；也可手动补齐或删掉不重要的。"></textarea>
+                <textarea id="char-memory" rows="4" placeholder="每轮自动追加事实（称呼、物品、约定、没做完的事），最多 24 条。"></textarea>
                 <p style="font-size:12px; color:#999; margin:-2px 0 10px;">这里放“必须记住的事”，每轮随提示词发送，字数很少；清空则重新积累。</p>
             </div>
             <div class="settings-actions">
@@ -1210,6 +1210,8 @@
             autoResize(userInput);
             statusMsg.textContent = '';
             closeSidebar();
+            // 有历史、没角色卡：读完整段对话再补
+            setTimeout(ensureCharacterCard, 100);
             return true;
         }
         function deleteSession(sessionId) {
@@ -1711,14 +1713,25 @@ ${compressText}`;
 2. 保留角色说话的特点（称呼方式、口癖），但不要抄原句。
 3. 不复述、不评价、不扮演任何角色，不写对白。
 4. 用条目输出，每条一行，300 字以内。`;
-        // 记忆卡：每 3 轮压一次，最多 24 行，短句事实
+        // 角色档案自动维护用的两个提示词：都只输出 JSON
         const MEMORY_MAX_LINES = 24;
-        const MEMORY_INTERVAL_AI = 3;
-        const MEMORY_SYSTEM_PROMPT = `你是对话档案员，不是角色，也不要续写剧情。输入是一张“记忆卡”和最近几轮对话。
-任务：只提取续写必须知道的新事实，输出 0-3 行，每行不超过 25 字，以“- ”开头。
-只写：谁做了什么、说定的事、关系或称呼变化、物品归属、没做完的动作、地点与时间。
-不写：情绪、形容、对白原句、推测，以及记忆卡里已有的或同义的内容。
-没有新事实时只输出 NONE。`;
+        const CARD_UPDATE_PROMPT = `你是资料整理员，不是角色，也不续写剧情。输入是最近几轮对话，任务：为这个角色更新档案。
+只输出 JSON，格式：
+{
+  "style": ["角色这一轮最有代表性的原话，必须一字不改照抄，1-2 句，每句不超过 30 字，用“”包住"],
+  "memo": ["这一轮的关键进展，最多 1 条，不超过 25 字；没有就给空数组"],
+  "memory": ["续写必须记住的新事实（称呼、物品、约定、没做完的事），最多 2 条，不超过 25 字；没有就给空数组"]
+}
+只写客观事实和角色原话，不写情绪形容，不写推测，不输出 JSON 以外的任何文字。`;
+        const CARD_BUILD_PROMPT = `你是资料整理员，不是角色，也不续写剧情。输入是一段完整的角色扮演对话，任务：整理成这个角色的档案卡。
+只输出 JSON，格式：
+{
+  "persona": "用第二人称写：这个角色是谁、和对方是什么关系、处在什么场景、性格与说话习惯。120 字以内，不要引用对话原句。",
+  "style": ["从对话里摘 2-3 句这个角色的原话，必须一字不改，用“”包住，每句不超过 30 字"],
+  "memo": ["按时间顺序列出关键已发生事件，最多 8 条，每条不超过 25 字"],
+  "memory": ["续写必须记住的具体事实：称呼、物品归属、约定、没做完的事，最多 8 条，每条不超过 25 字"]
+}
+只输出 JSON，不输出任何解释。`;
         function getHistoryWindow() {
             const v = parseInt(localStorage.getItem(STORAGE_KEYS.historyWindow));
             return isNaN(v) ? 12 : Math.max(0, v);
@@ -1815,54 +1828,135 @@ ${compressText}`;
             }
             return total ? same / total : 0;
         }
-        function normalizeMemoryReply(text) {
-            return String(text || '')
-                .split('\n')
-                .map(s => s.replace(/^[-*·•\s\d.、]+/, '').trim())
-                .filter(s => s && s.toUpperCase() !== 'NONE' && s.length <= 40)
-                .slice(0, 3);
+        // ----- 角色卡自动维护：文风 / 前情 / 记忆 都按“新的在前、旧的保留”累积 -----
+        const CARD_LIMITS = { style: 12, memo: 20, memory: 24 };
+        function parseCardJson(text) {
+            let s = String(text || '').trim();
+            s = s.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+            const start = s.indexOf('{');
+            const end = s.lastIndexOf('}');
+            if (start === -1 || end === -1) return null;
+            try {
+                return JSON.parse(s.slice(start, end + 1));
+            } catch (e) {
+                return null;
+            }
         }
-        function mergeMemoryLines(newLines) {
-            const old = getMemoryLines();
+        function normalizeList(v, maxLen) {
+            if (!v) return [];
+            const arr = Array.isArray(v) ? v : String(v).split('\n');
+            return arr
+                .map(s => String(s).replace(/^[-*·•\s\d.、]+/, '').trim())
+                .filter(s => s && s.toUpperCase() !== 'NONE' && s.length <= (maxLen || 60))
+                .slice(0, 12);
+        }
+        function quoteStyle(list) {
+            return list.map(s => (/^[“"']/.test(s) ? s : '“' + s + '”'));
+        }
+        // 新条目放最前，与已有条目去重，超出上限才丢最旧的
+        function mergeLineBlock(existingText, newLines, maxLines, maxAdded) {
+            const old = String(existingText || '').split('\n').map(s => s.trim()).filter(Boolean);
             const added = [];
             newLines.forEach(l => {
-                if (added.length >= 3) return;
-                const dup = old.concat(added).some(o => textOverlap(o, l) > 0.5);
-                if (!dup) added.push(l);
+                if (added.length >= (maxAdded || 3)) return;
+                if (old.concat(added).some(o => textOverlap(o, l) > 0.5)) return;
+                added.push(l);
             });
-            if (added.length === 0) return 0;
-            saveMemoryLines(old.concat(added));
-            return added.length;
+            if (!added.length) return existingText || '';
+            return added.concat(old).slice(0, maxLines).join('\n');
         }
-        // 每 3 轮把最近 6 条压成记忆卡：一次请求、flash 模型、限 160 token
-        async function updateMemory() {
-            if (memoryUpdating || isGenerating) return;
-            const recent = messages.filter(m => m.type === 'user' || m.type === 'ai').slice(-6);
-            if (recent.length < 4) return;
-            const cards = getCharConfig().memory.trim();
-            const dialogue = recent.map(m => (m.type === 'user' ? '对方：' : '角色：') + m.text).join('\n');
+        function applyCardUpdate(data) {
+            const cfg = getCharConfig();
+            const next = {
+                persona: cfg.persona,
+                styleSamples: mergeLineBlock(cfg.styleSamples, quoteStyle(normalizeList(data.style, 40)), CARD_LIMITS.style, 2),
+                memo: mergeLineBlock(cfg.memo, normalizeList(data.memo, 30), CARD_LIMITS.memo, 1),
+                memory: mergeLineBlock(cfg.memory, normalizeList(data.memory, 30), CARD_LIMITS.memory, 2)
+            };
+            if (next.styleSamples === cfg.styleSamples && next.memo === cfg.memo && next.memory === cfg.memory) return;
+            setCharConfig(next);
+        }
+        // 整段历史生成角色卡：只补空缺，不覆盖已有内容
+        function applyCardBuild(data) {
+            const cfg = getCharConfig();
+            const next = {
+                persona: cfg.persona.trim() || String(data.persona || '').trim(),
+                styleSamples: cfg.styleSamples.trim() ||
+                    quoteStyle(normalizeList(data.style, 40)).join('\n'),
+                memo: cfg.memo.trim() || normalizeList(data.memo, 30).join('\n'),
+                memory: cfg.memory.trim() || normalizeList(data.memory, 30).join('\n')
+            };
+            if (next.persona === cfg.persona && next.styleSamples === cfg.styleSamples &&
+                next.memo === cfg.memo && next.memory === cfg.memory) return;
+            setCharConfig(next);
+        }
+        function buildTranscript(msgs, maxChars) {
+            const line = m => (m.type === 'user' ? '对方：' : m.type === 'system' ? '【档案】' : '角色：') +
+                String(m.text || '').replace(/\s+/g, ' ').trim();
+            const all = msgs.map(line).join('\n');
+            if (all.length <= maxChars) return all;
+            return msgs.slice(0, 4).map(line).join('\n') + '\n……（中间省略）……\n' + msgs.slice(-20).map(line).join('\n');
+        }
+        // 每轮结束都主动更新：文风示范取这轮原话，前情/记忆补新事实
+        async function updateCharacterCards() {
+            if (memoryUpdating || isGenerating || !getApiKey()) return;
+            const recent = messages.filter(m => m.type === 'user' || m.type === 'ai').slice(-4);
+            if (recent.length < 3) return;
             memoryUpdating = true;
+            const key = currentSessionId;
+            const dialogue = recent.map(m => (m.type === 'user' ? '对方：' : '角色：') + m.text).join('\n');
             const prevStatus = statusMsg.textContent;
-            statusMsg.textContent = '整理记忆…';
+            statusMsg.textContent = '更新记忆…';
             try {
                 const out = await generateAIResponse(
-                    [{ type: 'user', text: '【已有记忆卡】\n' + (cards || '（空）') + '\n\n【最近对话】\n' + dialogue }],
+                    [{ type: 'user', text: '【最近对话】\n' + dialogue }],
                     null,
-                    { mode: 'memory', model: 'deepseek-v4-flash', temperature: 0.2, maxTokens: 160 }
+                    { mode: 'cardUpdate', model: 'deepseek-v4-flash', temperature: 0.2, maxTokens: 200, jsonMode: true }
                 );
-                mergeMemoryLines(normalizeMemoryReply(out));
+                // 期间换了对话就丢弃，别写到别的角色身上
+                if (currentSessionId !== key) return;
+                const data = parseCardJson(out);
+                if (data) applyCardUpdate(data);
             } catch (e) {
                 console.error('记忆更新失败', e);
             } finally {
                 memoryUpdating = false;
-                if (statusMsg.textContent === '整理记忆…') statusMsg.textContent = prevStatus;
+                if (statusMsg.textContent === '更新记忆…') statusMsg.textContent = prevStatus;
+            }
+        }
+        // 打开有历史的对话时，从头到尾读一遍并补齐角色卡
+        async function ensureCharacterCard() {
+            if (memoryUpdating || isGenerating || !getApiKey()) return;
+            const cfg = getCharConfig();
+            const needPersona = !cfg.persona.trim();
+            const needRest = !cfg.styleSamples.trim() && !cfg.memo.trim() && !cfg.memory.trim();
+            if (!needPersona && !needRest) return;
+            const dialogue = messages.filter(m => m.text && m.text !== WELCOME_TEXT && m.text !== '...');
+            if (dialogue.length < 6) return;
+            memoryUpdating = true;
+            const key = currentSessionId;
+            const prevStatus = statusMsg.textContent;
+            statusMsg.textContent = '读取历史，整理角色卡…';
+            try {
+                const out = await generateAIResponse(
+                    [{ type: 'user', text: '【对话记录】\n' + buildTranscript(dialogue, 8000) }],
+                    null,
+                    { mode: 'cardBuild', model: 'deepseek-v4-flash', temperature: 0.2, maxTokens: 600, jsonMode: true }
+                );
+                if (currentSessionId !== key) return;
+                const data = parseCardJson(out);
+                if (data) applyCardBuild(data);
+            } catch (e) {
+                console.error('角色卡生成失败', e);
+            } finally {
+                memoryUpdating = false;
+                if (statusMsg.textContent === '读取历史，整理角色卡…') statusMsg.textContent = prevStatus;
             }
         }
         function maybeUpdateMemory() {
-            if (getHistoryWindow() === 0) return; // 发全量历史时不需要记忆卡，省一次请求
             const aiCount = messages.filter(m => m.type === 'ai' && m.text !== WELCOME_TEXT).length;
-            if (aiCount === 0 || aiCount % MEMORY_INTERVAL_AI !== 0) return;
-            setTimeout(function() { updateMemory(); }, 300);
+            if (aiCount === 0) return;
+            setTimeout(function() { updateCharacterCards(); }, 300);
         }
         // 旧版把设定存在全局键里，升级后迁移到这个对话，避免内容丢失
         function migrateLegacyCharConfig() {
@@ -1992,6 +2086,7 @@ ${compressText}`;
         // 组装角色扮演系统提示词：人设 + 文风示范 + 硬规则 + 禁用表达 + 本轮随机要求
         function buildSystemPrompt(options) {
             const rp = getRPConfig();
+            const clipText = (t, n) => (String(t || '').length > n ? String(t).slice(0, n) : String(t || ''));
             const banned = parseBanned(rp.bannedWords);
             // 角色自己的口癖不算重复，先剔掉，否则会把人物语感一起禁掉
             const ownVoice = rp.persona + rp.styleSamples + rp.memo;
@@ -2010,16 +2105,17 @@ ${compressText}`;
                 .join('\n');
             const memoBlock = (rp.memo.trim() || archiveText
                 ? '\n\n【长期设定 / 前情备忘（优先级最高，不得违反）】\n' +
-                  (rp.memo.trim() ? rp.memo.trim() : '') +
-                  (archiveText ? '\n【档案】\n' + archiveText : '')
+                  (rp.memo.trim() ? clipText(rp.memo.trim(), 280) : '') +
+                  (archiveText ? '\n【档案】\n' + clipText(archiveText, 280) : '')
                 : '');
             const styleBlock = rp.styleSamples.trim()
-                ? '\n\n【文风示范】\n下面几句是我想要的语感，新回复的句长、用词、标点习惯都要和它一致：\n' + rp.styleSamples.trim()
+                ? '\n\n【文风示范】\n下面几句是我想要的语感，新回复的句长、用词、标点习惯都要和它一致（越靠前越接近当前情绪）：\n' +
+                  clipText(rp.styleSamples.trim(), 300)
                 : '';
             // 自动累积的记忆卡：每轮随提示词发送，弥补窗口外的旧信息
             const memoryText = getCharConfig().memory.trim();
             const memoryBlock = memoryText
-                ? '\n\n【记忆卡（已经发生的事，写的时候必须与之保持一致）】\n' + memoryText +
+                ? '\n\n【记忆卡（已经发生的事，写的时候必须与之保持一致）】\n' + clipText(memoryText, 260) +
                   '\n这些是事实，不要向对方复述这张清单，也不要解释你知道这些。'
                 : '';
             const retryBlock = options && options.retryHint
@@ -2093,9 +2189,11 @@ ${pickTurnSeed()}${retryBlock}
             const promptOptions = Object.assign({}, options, { archive: archive });
             const systemContent = taskMode === 'summary'
                 ? SUMMARY_SYSTEM_PROMPT
-                : taskMode === 'memory'
-                    ? MEMORY_SYSTEM_PROMPT
-                    : buildSystemPrompt(promptOptions);
+                : taskMode === 'cardUpdate'
+                    ? CARD_UPDATE_PROMPT
+                    : taskMode === 'cardBuild'
+                        ? CARD_BUILD_PROMPT
+                        : buildSystemPrompt(promptOptions);
             const apiMessages = [
                 { role: 'system', content: systemContent }
             ];
@@ -2114,8 +2212,11 @@ ${pickTurnSeed()}${retryBlock}
                 stream: true,
                 temperature: temperature
             };
-            if (!rp.thinking || taskMode === 'summary' || taskMode === 'memory') {
+            if (!rp.thinking || taskMode) {
                 requestBody.thinking = { type: 'disabled' };
+            }
+            if (options && options.jsonMode) {
+                requestBody.response_format = { type: 'json_object' };
             }
             if (options && options.maxTokens) {
                 requestBody.max_tokens = options.maxTokens;
@@ -2129,9 +2230,10 @@ ${pickTurnSeed()}${retryBlock}
                 body: JSON.stringify(requestBody)
             };
             let response = await fetchWithTimeout(API_URL, requestOptions, 30000);
-            if (!response.ok && response.status === 400 && requestBody.thinking) {
-                // 个别账号或模型不认 thinking 参数：去掉它再试一次，其余不变
+            if (!response.ok && response.status === 400 && (requestBody.thinking || requestBody.response_format)) {
+                // 个别账号或模型不认 thinking / response_format：去掉再试一次，其余不变
                 delete requestBody.thinking;
+                delete requestBody.response_format;
                 requestOptions.body = JSON.stringify(requestBody);
                 response = await fetchWithTimeout(API_URL, requestOptions, 30000);
             }
@@ -2228,6 +2330,14 @@ ${pickTurnSeed()}${retryBlock}
             }
             if (messages.length === 1 && messages[0].type === 'ai' && messages[0].text === WELCOME_TEXT) {
                 messages = [];
+            }
+            // 新对话的第一句：原样写进角色设定，不改一个字
+            const isFirstUserMsg = !messages.some(m => m.type === 'user');
+            if (isFirstUserMsg) {
+                const cfg = getCharConfig();
+                if (!cfg.persona.trim()) {
+                    setCharConfig(Object.assign({}, cfg, { persona: text }));
+                }
             }
             const userMsg = { type: 'user', text: text };
             messages.push(userMsg);
